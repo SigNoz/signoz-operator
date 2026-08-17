@@ -10,7 +10,7 @@ The open question these fields raise is not what they are but where they belong:
 
 ## Constraints
 
-- **Every one of these controls is read by this operator's own reconcile loop.** The connection reference decides where a write goes; the interval decides when the next reconcile runs; the retry interval decides how soon a failed one runs again; the timeout bounds a single attempt; suspend decides whether to act at all; the reclaim policy decides what a finalizer does. None is metadata for some other tool — they are inputs to *our* controller's decisions.
+- **Every one of these controls is read by this operator's own reconcile loop.** The provider-config reference decides where a write goes; the interval decides when the next reconcile runs; the retry interval decides how soon a failed one runs again; the timeout bounds a single attempt; suspend decides whether to act at all; the reclaim policy decides what a finalizer does. None is metadata for some other tool — they are inputs to *our* controller's decisions.
 
 - **Most of them are typed, not free strings.** The interval, retry interval, and timeout are durations, the reclaim policy is a closed enum, suspend is a boolean. A wrong value for any of them — an unparseable duration, a misspelled policy — should be caught, and caught early.
 
@@ -38,9 +38,9 @@ Declare the controls as fields on `CoreSpec`, with kubebuilder validation and de
 
 ```go
 type CoreSpec struct {
-    // Which SigNoz to write to. Defaults to the operator's configured connection.
-    // +optional
-    ConnectionRef *ConnectionRef `json:"connectionRef,omitempty"`
+    // Which SigNoz to write to. Required — every resource names its backend; there is no operator default.
+    // +kubebuilder:validation:Required
+    ProviderConfigRef ProviderConfigReference `json:"providerConfigRef"`
 
     // Interval is the steady-state cadence at which the resource is re-checked
     // against SigNoz. Defaults to the operator default.
@@ -71,7 +71,7 @@ type CoreSpec struct {
 
 | Field | Type | Behaviour |
 |---|---|---|
-| `connectionRef` | `*ConnectionRef` | Names the `Connection` to write through, resolved in the same namespace. |
+| `providerConfigRef` | `ProviderConfigReference` | **Required.** Names the `ProviderConfig` (same namespace) or cluster-scoped `ClusterProviderConfig` to write through, by `name` and `kind` — see [provider-config.md](provider-config.md). There is no operator-wide default; a single-tenant install creates one object and names it. |
 | `interval` | `*metav1.Duration` | Steady-state cadence at which the operator re-checks the remote object against desired state, driving the periodic drift correction described in [core-status.md](core-status.md). Omitted, it falls back to the operator-wide default. |
 | `retryInterval` | `*metav1.Duration` | Cadence at which a `Recoverable` failure is retried, letting failures back off on a shorter loop than the steady `interval`. A fixed cadence, not exponential. |
 | `timeout` | `*metav1.Duration` | Upper bound on a single reconciliation attempt, including the HTTP calls to SigNoz. Defaults to `1m`. Each resource owns its own, so there is no competing connection-wide or operator-wide reconcile timeout. |
@@ -84,7 +84,7 @@ type CoreSpec struct {
 
 - The knobs are self-documenting: `kubectl explain dashboard.spec` lists them with their types and defaults, and `reclaimPolicy` defaults to `Delete` through the schema with no controller code. A user discovers the controls from the object itself.
 
-- Timeout is a property of the resource, not of the connection. Dropping any timeout field from the `Connection` removes a knob that could compete with this one: a slow SigNoz endpoint is bounded per resource, by the resource's own `timeout`, so two resources sharing a connection can carry different bounds and a shared connection never imposes a single global limit.
+- Timeout is a property of the resource, not of the connection. Keeping any timeout field off the `ProviderConfig` removes a knob that could compete with this one: a slow SigNoz endpoint is bounded per resource, by the resource's own `timeout`, so two resources sharing a `ProviderConfig` can carry different bounds and a shared `ProviderConfig` never imposes a single global limit.
 
 - Changing `suspend` or `reclaimPolicy` is a spec edit. Under GitOps that means a commit, not a quick `kubectl annotate` — the one ergonomic advantage the annotation approach had, which we give up deliberately in exchange for typing, defaulting, and consistency with the rest of the API.
 

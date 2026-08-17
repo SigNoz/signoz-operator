@@ -10,7 +10,7 @@ Status is written under a status subresource (`+kubebuilder:subresource:status`)
 
 The remote object is created over HTTP with a server-assigned identifier, so the identifier is observed state discovered after the create, not desired state the user supplies — see [idempotency.md](idempotency.md). Status therefore has to carry that identifier once it is known, and has to be honest about the window in which it is not yet known.
 
-The desired-state half of the same shared struct — the connection reference, reconcile interval, suspend switch, and reclaim policy — is [core-spec.md](core-spec.md); this document covers only the observed-state half.
+The desired-state half of the same shared struct — the provider-config reference, reconcile interval, suspend switch, and reclaim policy — is [core-spec.md](core-spec.md); this document covers only the observed-state half.
 
 ## Constraints
 
