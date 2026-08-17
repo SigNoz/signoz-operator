@@ -1,0 +1,5 @@
+## Append samples of your project ##
+resources:
+- resources_v1alpha1_providerconfig.yaml
+- resources_v1alpha1_clusterproviderconfig.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

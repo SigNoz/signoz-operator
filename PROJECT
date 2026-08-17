@@ -10,4 +10,22 @@ multigroup: true
 namespaced: true
 projectName: signoz-operator
 repo: github.com/SigNoz/signoz-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: ProviderConfig
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: ClusterProviderConfig
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
 version: "3"
