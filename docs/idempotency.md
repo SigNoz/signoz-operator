@@ -67,7 +67,7 @@ The create sequence is then identical everywhere. `A` is the annotation:
 ```
 1. desired, hash := Render(cr)
 
-2. if status.signozID == "" and A is absent:
+2. if status.signozResourceMetadata.id == "" and A is absent:
        Find()
          found      → adopt (gated on the adopt-existing annotation)
          ambiguous  → Terminal
@@ -77,13 +77,13 @@ The create sequence is then identical everywhere. `A` is the annotation:
    (if this write fails, do not POST)
 
 4. POST — never retried
-     201             → status.signozID = id; clear A; Synced=True
+     201             → status.signozResourceMetadata.id = id; clear A; Synced=True
      409             → it exists: Find() → adopt; if still not found → Terminal
      other 4xx       → Terminal; clear A (nothing was created)
      5xx / timeout / connection error
                      → outcome UNKNOWN: leave A set; Synced=Unknown; requeue
 
-5. any reconcile with A set and status.signozID == "":
+5. any reconcile with A set and status.signozResourceMetadata.id == "":
        Find()
          1 match              → adopt; clear A
          >1                   → Terminal (ambiguous) — never guess

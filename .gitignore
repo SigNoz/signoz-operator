@@ -72,3 +72,8 @@ Temporary Items
 tmp/
 CLAUDE.local.md
 .dev/
+
+### KubeBuilder ###
+bin/*
+Dockerfile.cross
+*.kubeconfig
