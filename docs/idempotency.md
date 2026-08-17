@@ -10,15 +10,15 @@ Every resource this operator manages is a record in SigNoz, created over HTTP. C
 POST → 201 (object created) → response lost → identifier never recorded
 ```
 
-No client-side mechanism prevents that object existing. RFC 9110 states the limit, and states it about *idempotent* methods, which carry the stronger guarantee: *"A client cannot know whether an idempotent request succeeded if a communication failure occurs before receiving a response"* ([RFC 9110 §9.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2)). The same section is why HTTP distinguishes idempotent methods at all — it permits automatic retry only for them, and `POST` is not among them.
+No client-side mechanism prevents that object existing. HTTP draws the line at idempotency: the idempotent methods are *"PUT, DELETE, and safe request methods"*, and they are distinguished precisely because such a request *"can be repeated automatically if a communication failure occurs before the client is able to read the server's response"* ([RFC 9110 §9.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2)). `POST` is not on that list, and the same section withholds the permission: *"A client SHOULD NOT automatically retry a request with a non-idempotent method unless it has some means to know that the request semantics are actually idempotent, regardless of the method, or some means to detect that the original request was never applied."* That detection is not something HTTP supplies — it is the thing the operator has to build.
 
 So "create each object exactly once" is not an achievable goal, and any design aiming at it is solving the wrong problem. What is achievable is never making the situation worse, and always being able to say what is uncertain.
 
 ## Constraints
 
-Three constraints bound the design. Two are facts about the API that we cannot change; the third is a choice, and one we intend to hold.
+Three constraints bound the design. The first and last are facts we cannot change; the middle one is a choice, and one we intend to hold.
 
-- **The SigNoz API cannot be changed.** Whether it accepts a user-supplied identifier on create is unverified and the design does not depend on the answer. What is certain is that there is no idempotent `PUT`-to-create and no idempotency-key header. SigNoz does enforce uniqueness for most resources, returning 409 on a colliding create, and that is worth using wherever it holds — but it does not hold everywhere. Where there is no uniqueness constraint a duplicate create simply succeeds and yields a second object, so identity for those resources is something the operator has to establish itself.
+- **The SigNoz API cannot be changed.** Whether it accepts a user-supplied identifier on create is unverified and the design does not depend on the answer. What is certain is that there is no idempotent `PUT`-to-create and no idempotency-key header. Whether a given resource is protected by a server-side uniqueness constraint is per-resource and unverified as a general rule: where one exists, a colliding create is rejected rather than duplicated, and that is worth using wherever it holds — but the design must not assume it holds everywhere. Where there is no uniqueness constraint a duplicate create simply succeeds and yields a second object, so identity for those resources is something the operator has to establish itself.
 
 - **We must not write an ownership marker into a SigNoz object.** Tags, labels and annotations belong to the user. Putting our own identifier in them adds data the user never asked for, and collides with values they set deliberately. Each of those fields also already carries a meaning, and re-purposing one for bookkeeping breaks that meaning in ways particular to each resource — on `AlertRule` the obvious field is `labels`, but rule labels are the alerting routing key and feed route-policy expression matching, so a marker there would change which notifications fire. Other resources have their own such hazards, and some expose no suitable field at all. This is a decision rather than a limitation: even if every resource had a spare field, we would not use one, because the approach does not generalise and each new resource would need its own judgement about where a marker could safely go.
 
@@ -62,14 +62,14 @@ The guarantee is deliberately narrower than exactly-once:
 
 Only two things vary per resource: an `Identity` function returning a key derived purely from desired state, and a `List` or `Get` using the cheapest filter the endpoint offers. `Find` composes them generically — try the recorded identifier, fall through on 404, then resolve by identity, where exactly one match is ours, zero means not created, and more than one is ambiguous and never guessed.
 
-The create sequence is then identical everywhere. `A` is the annotation:
+The create sequence is then identical everywhere. `A` is the `resources.signoz.io/create-attempt` annotation, and adoption is gated on a second annotation, `resources.signoz.io/adopt-existing`:
 
 ```
 1. desired, hash := Render(cr)
 
 2. if status.signozResourceMetadata.id == "" and A is absent:
        Find()
-         found      → adopt (gated on the adopt-existing annotation)
+         found      → adopt (gated on resources.signoz.io/adopt-existing)
          ambiguous  → Terminal
          not found  → continue
 
@@ -101,9 +101,9 @@ The grace period exists because an immediate `Find` returning zero does not prov
 
 - **The HTTP client must not automatically retry `POST`.** This is the most likely source of duplicates in practice and needs no crash: a create that times out client-side but succeeded server-side, retried, is a duplicate. Retries are for `GET`, `PUT` and `DELETE` only.
 
-- **409 means two different things depending on method.** On create it is "already exists" and the response is to resolve and adopt. On delete it is "still referenced by some resource", which is retryable and not an adoption signal. Classification is by method, not by status code alone.
+- **409 is classified by method, not by status code alone.** On create it means "already exists", and the response is to resolve and adopt. A 409 on any other method carries no such meaning — an endpoint that returns it on delete because the object is still referenced is reporting a condition to retry, not an object to adopt. An adapter that classifies on the code alone will adopt on a delete conflict.
 
-- Adoption is never implicit. A custom resource whose identity matches an object already in SigNoz goes `Terminal` unless the adopt-existing annotation is present. Importing an existing object costs one extra step; the alternative is overwriting something a user built by hand.
+- Adoption is never implicit. A custom resource whose identity matches an object already in SigNoz goes `Terminal` unless `resources.signoz.io/adopt-existing` is present. Importing an existing object costs one extra step, and the operator will not take over something a user built by hand until it is told to.
 
 - Ambiguity is reported, not resolved. More than one candidate produces `Terminal` — for example *"ambiguous: 2 alert rules named X"* — and the operator does not write, delete, or guess. This is reachable only for resources whose uniqueness the operator enforces itself, and in practice only when someone creates a same-named object through the SigNoz UI.
 

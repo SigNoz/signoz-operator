@@ -4,7 +4,7 @@
 
 ## Context
 
-The operator keeps reconciling towards a desired state (in SigNoz) held in a custom resource (in K8s). `.status` is the operator's report back: what it observed about the remote object, whether the two are in sync, and - when they are not - why. It is the only channel a user or a GitOps tool has for that information, because the operator never writes anything back into `.spec` and never annotates the remote object. Running `kubectl get` or `kubectl wait` against the CR is the whole interface.
+The operator keeps reconciling towards a desired state (in SigNoz) held in a custom resource (in K8s). `.status` is the operator's report back: what it observed about the remote object, whether the two are in sync, and — when they are not — why. It is the reporting channel a user or a GitOps tool reads, because the operator never writes anything back into `.spec` and never annotates the remote object. Running `kubectl get` or `kubectl wait` against the CR is the whole interface.
 
 Status is written under a status subresource (`+kubebuilder:subresource:status`), so a spec edit and a status update are separate writes and cannot race each other. A reader needs three things from it: did the last reconcile succeed, is the resource in a state that will change on its own or one that is stuck until a human acts, and which remote object does this CR correspond to. A flat "ready / not ready" answers the first and none of the rest, and in particular cannot tell a caller whether waiting will help.
 
@@ -38,7 +38,7 @@ Each kind gets its own condition types — `DashboardSynchronized`, `RuleSynchro
 
 ### Taxonomy with uniform types
 
-A small fixed set of condition types shared by every kind — a solvability axis (`Terminal` vs `Recoverable`), a state axis (`Synced`), and a derived summary (`Ready`) — modelled on [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s/runtime/blob/f13ed6d/pkg/runtime/reconciler.go#L785-L792).
+A small fixed set of condition types shared by every kind — a solvability axis (`Terminal` vs `Recoverable`), a state axis (`Synced`), and a derived summary (`Ready`) — modelled on [AWS Controllers for Kubernetes](https://github.com/aws-controllers-k8s/runtime/blob/f13ed6d4c800714ce9379113b84740e2f4b79925/pkg/runtime/reconciler.go#L777-L784).
 
 **Accepted.** The solvability axis is what the flat model lacks: `Terminal` is *"a stable state for a resource"* that the reconciler settles into without requeuing, so an invalid resource stops retrying instead of looping forever; `Recoverable` is the one that retries. Uniform types keep `kubectl wait --for=condition=Ready` and generic tooling working, and the per-kind detail still has a home in `reason`. Conditions are also the mechanism the Kubernetes API conventions single out — *"a standard mechanism for higher-level status reporting from a controller"* ([Kubernetes API conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties)) — so this is the idiomatic shape as well as the expressive one.
 
@@ -46,11 +46,9 @@ A small fixed set of condition types shared by every kind — a solvability axis
 
 We define one `CoreStatus`, and its `CoreSpec` counterpart, built on `metav1.Condition` and embedded inline by every kind. Both live in the versioned package alongside the kinds — `api/resources/v1alpha1/core.go`. Three choices fix that location:
 
-- **Versioned, not shared across versions.** These types are part of a served CRD's schema (JSON tags, validation markers), and a CRD schema is per-version: Kubernetes lets a later version differ and converts between versions through a storage version rather than a shared definition — kubebuilder gives *"a separate Go package for each API version"* ([kubebuilder multi-version tutorial](https://book.kubebuilder.io/multiversion-tutorial/api-changes)). Freezing one definition across versions would defeat that, so a `v1beta1` gets its own copy plus a conversion, in `api/resources/v1beta1/`.
+- **Versioned.** These types are part of a served CRD's schema (JSON tags, validation markers), and a CRD schema is per-version: a later version is free to change shape, and Kubernetes reconciles the difference by conversion — *"all versions must be safely round-tripable through each other"* ([kubebuilder multi-version tutorial](https://book.kubebuilder.io/multiversion-tutorial/api-changes)), wired through a designated hub version ([hubs and spokes](https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts)). A `v1beta1` therefore gets its own copy of these types plus a conversion, in `api/resources/v1beta1/`.
 
-- **In the group, not a dedicated `core` group.** A separate, independently-versioned group of shared primitives — the ACK / `metav1` pattern — earns its keep only when many groups embed an identical type whose shape is stable enough to freeze. Only `resources` embeds these, and they will grow, so a standalone group is machinery for one consumer. If `installations` ever needs one of these types, extracting `api/core/v1alpha1/` then is mechanical and moves no kinds — nothing is lost by waiting.
-
-- **In `resources`, not another group.** The reason is semantic: these fields describe mirroring a remote SigNoz object, which is what the `resources` group is. `installations` deploys SigNoz itself and will not embed them.
+- **In the `resources` group.** These fields describe mirroring a remote SigNoz object, which is what the `resources` group is; `installations` deploys SigNoz itself and does not embed them. An independently-versioned group of shared primitives earns its keep when many groups embed an identical type whose shape is stable enough to freeze, and one consumer with a shape still growing is not that. If `installations` ever needs one of these types, extracting `api/core/v1alpha1/` at that point is mechanical and moves no kinds.
 
 ```go
 type CoreStatus struct {
@@ -100,7 +98,7 @@ The condition vocabulary is the same on every kind. Types are fixed; kind-specif
 | `Terminal` | The desired state is wrong and no retry will help — a validation rejection, a name already taken, a permission denied. A stable state: the reconciler settles here and does not requeue. |
 | `Recoverable` | A transient failure — 429, 5xx, a dial or connection error. The reconciler requeues at [`retryInterval`](core-spec.md) (falling back to `interval`). |
 | `Synced` | Three-valued. `True` when the remote matches desired, `False` when a `Terminal` cause means it never will, and `Unknown` when the operator could not determine the answer (a transient failure, or the outcome-unknown window). |
-| `Ready` | Derived, not set directly: the controller rolls up the others and reports the most serious one that applies, in the order `Terminal` > `Recoverable` > `Synced` > `Unknown` (`>` means "outranks", worst-first, so `Ready`'s reason is always the most actionable state currently true). The single condition a user or tool should wait on. |
+| `Ready` | Derived, not set directly: the controller rolls up the others and reports the most serious that applies, in the precedence `Terminal`, then `Recoverable`, then `Synced` — so `Ready`'s reason is always the most actionable state currently true. Its status follows the condition it summarises, including `Unknown`. The single condition a user or tool should wait on. |
 | `Suspended` | Reconciliation is paused by [`spec.suspend`](core-spec.md); the operator is deliberately not acting on this resource. |
 
 Which API outcome maps to `Terminal` versus `Recoverable` is a per-resource table of status codes, kept as data next to each adapter rather than as a branch inside the reconcile loop, so a new resource declares its classification instead of editing shared control flow.
@@ -122,4 +120,5 @@ Which API outcome maps to `Terminal` versus `Recoverable` is a per-resource tabl
 ## Sources
 
 - [Kubernetes API conventions — typical status properties](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties)
-- [Kubebuilder book — multi-version tutorial](https://book.kubebuilder.io/multiversion-tutorial/api-changes)
+- [Kubebuilder book — multi-version tutorial: changing things up](https://book.kubebuilder.io/multiversion-tutorial/api-changes)
+- [Kubebuilder book — hubs, spokes, and other wheel metaphors](https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts)
