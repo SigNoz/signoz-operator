@@ -57,7 +57,6 @@ type HeaderAuth struct {
 	// +optional
 	Scheme string `json:"scheme,omitempty"`
 
-	// When Scheme is set this is the bare token.
 	// +optional
 	Value string `json:"value,omitempty"`
 

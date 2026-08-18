@@ -62,7 +62,6 @@ spec:
                           e.g. Scheme "Bearer" with Name "Authorization" sends "Authorization: Bearer <value>".
                         type: string
                       value:
-                        description: When Scheme is set this is the bare token.
                         type: string
                       valueFrom:
                         description: |-
