@@ -42,16 +42,19 @@ spec:
             description: spec defines the desired state of ProviderConfig
             properties:
               auth:
-                description: Auth authenticates writes to the endpoint.
+                description: Authentication is a closed union of methods; exactly
+                  one must be set.
                 maxProperties: 1
                 minProperties: 1
                 properties:
                   header:
-                    description: Header sends one HTTP header carrying the credential.
+                    description: |-
+                      HeaderAuth sends one HTTP header carrying the credential, inline or valueFrom
+                      a Secret/ConfigMap.
                     properties:
                       name:
                         default: SIGNOZ-API-KEY
-                        description: Name of the header to send. Defaults to SIGNOZ-API-KEY.
+                        description: Defaults to SIGNOZ-API-KEY.
                         type: string
                       scheme:
                         description: |-
@@ -59,12 +62,13 @@ spec:
                           e.g. Scheme "Bearer" with Name "Authorization" sends "Authorization: Bearer <value>".
                         type: string
                       value:
-                        description: Value is the credential inline. When Scheme is
-                          set this is the bare token.
+                        description: When Scheme is set this is the bare token.
                         type: string
                       valueFrom:
-                        description: ValueFrom sources the credential from a Secret
-                          (or ConfigMap) instead.
+                        description: |-
+                          ValueSource is the analog of corev1.EnvVarSource without the pod-only
+                          fieldRef/resourceFieldRef. References are name-only, so they resolve in the
+                          object's own namespace.
                         maxProperties: 1
                         minProperties: 1
                         properties:
@@ -122,17 +126,16 @@ spec:
                       rule: has(self.value) != has(self.valueFrom)
                 type: object
               endpoint:
-                description: Endpoint is the SigNoz base URL, inline or sourced from
-                  a Secret/ConfigMap.
+                description: Endpoint is the SigNoz base URL.
                 properties:
                   value:
                     pattern: ^https?://.+$
                     type: string
                   valueFrom:
                     description: |-
-                      ValueSource is the analog of corev1.EnvVarSource, minus the pod-only
-                      fieldRef/resourceFieldRef. Its references are name-only, so they resolve in
-                      the object's own namespace (the operator's, for ClusterProviderConfig).
+                      ValueSource is the analog of corev1.EnvVarSource without the pod-only
+                      fieldRef/resourceFieldRef. References are name-only, so they resolve in the
+                      object's own namespace.
                     maxProperties: 1
                     minProperties: 1
                     properties:
@@ -189,8 +192,8 @@ spec:
                 - message: set exactly one of value or valueFrom
                   rule: has(self.value) != has(self.valueFrom)
               tls:
-                description: TLS configures trust for a self-hosted endpoint behind
-                  a private CA.
+                description: TLSConfig configures trust for a self-hosted endpoint
+                  behind a private CA.
                 properties:
                   caSecretRef:
                     description: CASecretRef names a Secret key holding a CA bundle
@@ -218,7 +221,6 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   insecureSkipVerify:
-                    description: InsecureSkipVerify disables server-certificate verification.
                     type: boolean
                 type: object
             required:
@@ -229,9 +231,8 @@ spec:
             description: status defines the observed state of ProviderConfig
             properties:
               conditions:
-                description: |-
-                  conditions represent the current state of the ProviderConfig resource.
-                  A Ready condition reflects a health probe against the endpoint.
+                description: A Ready condition reflects a health probe against the
+                  endpoint.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
