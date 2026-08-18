@@ -7,6 +7,7 @@ resources:
 - service_account.yaml
 - role.yaml
 - role_binding.yaml
+- cluster_role_binding.yaml
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 # The following RBAC configurations are used to protect
@@ -18,3 +19,14 @@ resources:
 - metrics_auth_role.yaml
 - metrics_auth_role_binding.yaml
 - metrics_reader_role.yaml
+# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the signoz-operator itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- resources_clusterproviderconfig_admin_role.yaml
+- resources_clusterproviderconfig_editor_role.yaml
+- resources_clusterproviderconfig_viewer_role.yaml
+- resources_providerconfig_admin_role.yaml
+- resources_providerconfig_editor_role.yaml
+- resources_providerconfig_viewer_role.yaml
+

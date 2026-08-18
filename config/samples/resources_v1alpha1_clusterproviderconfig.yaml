@@ -1,0 +1,19 @@
+apiVersion: resources.signoz.io/v1alpha1
+kind: ClusterProviderConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: clusterproviderconfig-sample
+spec:
+  endpoint:
+    value: https://eu.signoz.cloud
+  auth:
+    header:
+      name: Authorization
+      scheme: Bearer
+      # Secret resolves in the operator's own namespace and holds only the token.
+      valueFrom:
+        secretKeyRef:
+          name: signoz-api
+          key: token

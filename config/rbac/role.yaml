@@ -1,11 +1,65 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - clusterproviderconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - clusterproviderconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - clusterproviderconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: manager-role
+  namespace: signoz-operator-system
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - providerconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - providerconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - providerconfigs/status
+  verbs:
+  - get
+  - patch
+  - update

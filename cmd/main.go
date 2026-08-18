@@ -21,6 +21,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	resourcescontroller "github.com/SigNoz/signoz-operator/internal/controller/resources"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -32,6 +35,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	utilruntime.Must(resourcesv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -203,6 +207,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&resourcescontroller.ProviderConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "resources-providerconfig")
+		os.Exit(1)
+	}
+
+	if err := (&resourcescontroller.ClusterProviderConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "resources-clusterproviderconfig")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
