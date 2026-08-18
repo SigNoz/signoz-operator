@@ -36,7 +36,7 @@ It is genuinely tempting — the flattest YAML, no extra indentation — and it 
 
 Fence each kind's payload under its own name — `spec.dashboard`, `spec.authDomain`.
 
-**Rejected.** It is the strongest of the rejected options: naming the key after the remote type is the best-attested convention among operators that mirror exactly one remote object per kind ([grafana-operator API reference](https://grafana.github.io/grafana-operator/docs/api/), [Keycloak — realm import](https://www.keycloak.org/operator/realm-import)). Go code stays kind-independent either way, through an accessor. What a varying key costs is everything that addresses the payload by its literal path: one CEL rule cannot be written for all kinds, printer columns and `kubectl -o jsonpath` need a per-kind path, and a reader learning the second kind cannot reuse what they learned from the first. A fixed key buys one shape to learn and one path to write against, and the key restates nothing that `kind:` has already said.
+**Rejected.** It is the strongest of the rejected options: naming the key after the remote type is a well-attested convention among operators that mirror exactly one remote object per kind ([Keycloak — realm import](https://www.keycloak.org/operator/realm-import)). Go code stays kind-independent either way, through an accessor. What a varying key costs is everything that addresses the payload by its literal path: one CEL rule cannot be written for all kinds, printer columns and `kubectl -o jsonpath` need a per-kind path, and a reader learning the second kind cannot reuse what they learned from the first. A fixed key buys one shape to learn and one path to write against, and the key restates nothing that `kind:` has already said.
 
 ### Shared controls under a key, resource-specific fields at the root
 
@@ -54,9 +54,9 @@ That trade pays when the payload set cannot be enumerated — a catalogue that g
 
 ### A separate kind per form
 
-Ship a typed kind and an opaque kind for each resource, and let a user pick between them at the `kind:` line ([datadoghq.com_datadoggenericresources.yaml](https://github.com/DataDog/datadog-operator/blob/c40db5d628e8fb0aa069aee8ab21e4bf54bb6b8a/config/crd/bases/v1/datadoghq.com_datadoggenericresources.yaml)).
+Ship a typed kind and an opaque kind for each resource, and let a user pick between them at the `kind:` line.
 
-**Rejected.** The lesson from the operator that shipped both is that the opaque form tends to become the recommended one, because a payload passed through directly picks up new API fields without an operator release, where a typed kind has to be extended first ([datadog_generic_resource.md](https://github.com/DataDog/datadog-operator/blob/c40db5d628e8fb0aa069aee8ab21e4bf54bb6b8a/docs/datadoggenericresource/datadog_generic_resource.md)). That is the right conclusion about which form wins in practice and the wrong place to express the choice. Splitting by kind doubles the CRDs, the RBAC rules and the reference docs, and it makes changing form a delete-and-recreate across two kinds: the old object's deletion runs the finalizer, which under a `Delete` reclaim policy takes the SigNoz object with it. A choice made inside one kind is an in-place edit.
+**Rejected.** The objection is to where the choice is expressed, not to which form is better. Splitting by kind doubles the CRDs, the RBAC rules and the reference docs, and it makes changing form a delete-and-recreate across two kinds: the old object's deletion runs the finalizer, which under a `Delete` reclaim policy takes the SigNoz object with it. A choice made inside one kind is an in-place edit.
 
 ### One fixed key holding the object in interchangeable forms
 
@@ -171,7 +171,7 @@ Mirroring is tempting for a value the server computes that a user then has to ac
 
 ### The two forms, and the third
 
-Both forms carry the same body, so the choice is an encoding, not a semantic. `spec` is the typed struct. `jsonSpec` is a string holding the request body as written — a required non-empty string, the shape an operator reaches for when the point is to pass a vendor's payload through unaltered ([datadoghq.com_datadoggenericresources.yaml](https://github.com/DataDog/datadog-operator/blob/c40db5d628e8fb0aa069aee8ab21e4bf54bb6b8a/config/crd/bases/v1/datadoghq.com_datadoggenericresources.yaml)). `gzipJsonSpec` is reserved for the same document gzipped and base64-encoded, which is where this goes once a payload outgrows a plain string ([grafana-operator API reference](https://grafana.github.io/grafana-operator/docs/api/)).
+Both forms carry the same body, so the choice is an encoding, not a semantic. `spec` is the typed struct. `jsonSpec` is a required non-empty string holding the request body as written, which is what a string buys over a structured field: the document survives as the user pasted it. `gzipJsonSpec` is reserved for the same document gzipped and base64-encoded, for payloads that outgrow a plain string.
 
 Exclusivity is enforced by `MinProperties=1` and `MaxProperties=1` on the struct rather than by a CEL rule, which is why the struct holds forms and nothing else. A rule spelling out `has(a) != has(b)` has to be rewritten into a three-way and then a four-way expression as forms are added, and each rewrite can be got wrong; a property count extends by itself. It is also the shape [provider-config.md](provider-config.md) already uses for `ValueSource` and for the authentication union.
 
@@ -223,7 +223,7 @@ A body that will not parse fails at the seam, before anything else runs. Both `R
 
 - Until an admission webhook exists, a malformed `jsonSpec` is caught at reconcile rather than at apply. The API server sees a valid string and CEL cannot parse JSON, so the resource applies cleanly and goes `Terminal` on the next reconcile. A webhook does not change that outcome; it moves the rejection forward to `kubectl apply`, where a body the schema does model is already rejected. The typed form needs no webhook.
 
-- Printer columns must come from status. No path under `objectTemplate` resolves on a `jsonSpec` object, so anything `kubectl get` shows comes from `CoreStatus`, or from a field the operator lifts out of the body it rendered — desired state it already holds locally, on either form, which is not the remote mirror ruled out above. This is the settled answer among operators carrying opaque payloads, whose printed columns are identity and sync state rather than anything read from the spec.
+- Printer columns must come from status. No path under `objectTemplate` resolves on a `jsonSpec` object, so anything `kubectl get` shows comes from `CoreStatus`, or from a field the operator lifts out of the body it rendered — desired state it already holds locally, on either form, which is not the remote mirror ruled out above.
 
 - Schema defaults fire only on the typed form. Where a CRD default fills a field the user omitted, a typed resource sends it explicitly while a `jsonSpec` resource relies on SigNoz's own defaulting. The end state matches today; it will diverge the first time a server-side default changes.
 
