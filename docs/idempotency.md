@@ -44,13 +44,13 @@ Treat a 409 on create as proof the object already exists, and resolve it from th
 
 Send a client-generated key per logical create and let the server deduplicate.
 
-**Rejected.** This is the correct solution to the general problem — the IETF draft exists precisely to *"make non-idempotent HTTP methods such as POST or PATCH fault-tolerant"* ([draft-ietf-httpapi-idempotency-key-header-07](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-07)), and Google's `request_id` equivalent specifies that on a duplicate the server *"should return the response for the previously successful request, because the client most likely did not receive the previous response"* ([AIP-155](https://google.aip.dev/155)). It requires server support we cannot add.
+**Rejected.** This is the correct solution to the general problem — the IETF draft exists precisely to *"make non-idempotent HTTP methods such as `POST` or `PATCH` fault-tolerant"* ([draft-ietf-httpapi-idempotency-key-header-07](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-07)), and API guidance that specifies the same thing under a request-identifier field has the server replay the original response on a duplicate, on the reasoning that a client retrying almost certainly never saw it ([AIP-155](https://google.aip.dev/155)). It requires server support we cannot add.
 
 ### Write-ahead create record plus identity resolution
 
 Record the intent to create on the custom resource before calling, and resolve the outcome afterwards by an identity derived from desired state.
 
-**Accepted.** It needs nothing from the server, so it behaves identically on every surface, which is the property the constraints demand. It is also the established fallback for this situation. Crossplane records the same intent in three annotations — `crossplane.io/external-create-pending`, described as *"The last time the provider was about to create the resource"*, alongside `external-create-succeeded` and `external-create-failed` ([Crossplane managed resources](https://docs.crossplane.io/latest/managed-resources/managed-resources/)) — and when pending is newer than both others it stops rather than retrying, emitting *"cannot determine creation result - remove the crossplane.io/external-create-pending annotation if it is safe to proceed"* ([Crossplane managed resources](https://docs.crossplane.io/latest/managed-resources/managed-resources/)).
+**Accepted.** It needs nothing from the server, so it behaves identically on every surface, which is the property the constraints demand. The lesson it encodes is the one every controller facing a non-idempotent create arrives at: a durable record written *before* the call is what converts "we do not know whether this exists" from an unanswerable question into a two-way branch, and the honest response to the unknown branch is to stop rather than to retry ([Crossplane — managed resources](https://docs.crossplane.io/latest/managed-resources/managed-resources/)).
 
 ## Decision
 
@@ -60,9 +60,9 @@ The guarantee is deliberately narrower than exactly-once:
 
 > The operator never issues a create whose outcome it might not learn, and never issues a second create while a previous outcome is unknown.
 
-Only two things vary per resource: an `Identity` function returning a key derived purely from desired state, and a `List` or `Get` using the cheapest filter the endpoint offers. `Find` composes them generically — try the recorded identifier, fall through on 404, then resolve by identity, where exactly one match is ours, zero means not created, and more than one is ambiguous and never guessed.
+Only two things vary per resource: an `Identity` function returning a key derived purely from desired state, which the kind supplies as part of the seam in [resources.md](resources.md), and a `List` or `Get` on the adapter using the cheapest filter the endpoint offers. `Find` composes them generically — try the recorded identifier, fall through on 404, then resolve by identity, where exactly one match is ours, zero means not created, and more than one is ambiguous and never guessed.
 
-The create sequence is then identical everywhere. `A` is the `resources.signoz.io/create-attempt` annotation, and adoption is gated on a second annotation, `resources.signoz.io/adopt-existing`:
+The create sequence is then identical everywhere. `A` is the `resources.signoz.io/create-attempt` annotation, and first-contact adoption is gated on a second annotation, `resources.signoz.io/adopt-existing`:
 
 ```
 1. desired, hash := Render(cr)
@@ -91,9 +91,11 @@ The create sequence is then identical everywhere. `A` is the `resources.signoz.i
          0, past grace period → nothing was created; clear A; go to 3
 ```
 
+The `adopt-existing` gate is on step 2 only. Steps 4 and 5 run with `A` already on the object, which is the operator's own record that it issued the create, so taking ownership of what it finds there is resolving its own attempt rather than claiming a user's object.
+
 The annotation lives in `metadata` rather than `status` because status is a subresource and there are real paths where the object survives without it, such as a restore from a backup that excludes status.
 
-The grace period exists because an immediate `Find` returning zero does not prove the create failed — the write may not be readable yet. Crossplane separates this from cache staleness as its own problem, citing external APIs where *"a newly created external resource may take some time before our ExternalClient's observe call can confirm it exists"*, and adopts the same remedy: *"During this grace period we'll requeue and keep waiting if Observe determines that the external resource doesn't exist, rather than (re)creating it"* ([crossplane-runtime#283](https://github.com/crossplane/crossplane-runtime/pull/283)). Default 30 seconds, tunable by flag.
+The grace period exists because an immediate `Find` returning zero does not prove the create failed — the write may not be readable yet. That is a distinct problem from a stale local cache, and it needs the opposite response: while the window is open, a `Find` that comes back empty is a reason to wait, not a reason to create again ([crossplane-runtime#283](https://github.com/crossplane/crossplane-runtime/pull/283)). Default 30 seconds, tunable by flag.
 
 ## Consequences
 
@@ -103,9 +105,9 @@ The grace period exists because an immediate `Find` returning zero does not prov
 
 - **409 is classified by method, not by status code alone.** On create it means "already exists", and the response is to resolve and adopt. A 409 on any other method carries no such meaning — an endpoint that returns it on delete because the object is still referenced is reporting a condition to retry, not an object to adopt. An adapter that classifies on the code alone will adopt on a delete conflict.
 
-- Adoption is never implicit. A custom resource whose identity matches an object already in SigNoz goes `Terminal` unless `resources.signoz.io/adopt-existing` is present. Importing an existing object costs one extra step, and the operator will not take over something a user built by hand until it is told to.
+- First contact with an existing object is never implicit. A custom resource whose identity matches an object already in SigNoz, with no create-attempt recorded, goes `Terminal` unless `resources.signoz.io/adopt-existing` is present. Importing an existing object costs one extra step, and the operator will not take over something a user built by hand until it is told to.
 
-- Ambiguity is reported, not resolved. More than one candidate produces `Terminal` — for example *"ambiguous: 2 alert rules named X"* — and the operator does not write, delete, or guess. This is reachable only for resources whose uniqueness the operator enforces itself, and in practice only when someone creates a same-named object through the SigNoz UI.
+- Ambiguity is reported, not resolved. More than one candidate produces `Terminal` with a message naming the count and the key — `ambiguous: 2 alert rules named X` — and the operator does not write, delete, or guess. This is reachable only for resources whose uniqueness the operator enforces itself, and in practice only when someone creates a same-named object through the SigNoz UI.
 
 - `Find` costs a list call, so it runs only on the recovery path when the identifier is empty, never on every reconcile.
 

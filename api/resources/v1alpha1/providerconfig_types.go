@@ -97,7 +97,8 @@ type ProviderConfigSpec struct {
 
 // ProviderConfigStatus is the shared observed state of ProviderConfig and ClusterProviderConfig.
 type ProviderConfigStatus struct {
-	// A Ready condition reflects a health probe against the endpoint.
+	// A Ready condition reports that the endpoint and credential resolved. It
+	// does not report that SigNoz answered.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
