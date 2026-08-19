@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -62,6 +63,10 @@ func run(cfg *config) error {
 		return err
 	}
 
+	if cfg.OperatorNamespace == "" {
+		return errors.New("--operator-namespace is required: a ClusterProviderConfig's Secret and ConfigMap references resolve there")
+	}
+
 	webhookServer := webhook.NewServer(cfg.buildWebhookServerOptions())
 
 	mgrOptions := ctrl.Options{
@@ -87,8 +92,9 @@ func run(cfg *config) error {
 	}
 
 	if err := (&resourcescontroller.ClusterProviderConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Namespace: cfg.OperatorNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("could not create controller resources-clusterproviderconfig: %w", err)
 	}

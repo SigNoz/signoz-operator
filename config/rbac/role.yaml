@@ -38,6 +38,15 @@ metadata:
   namespace: signoz-operator-system
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - resources.signoz.io
   resources:
   - providerconfigs

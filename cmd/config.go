@@ -29,6 +29,7 @@ type config struct {
 	MetricsCertKey         string
 	EnableHTTP2            bool
 	WatchNamespaces        []string
+	OperatorNamespace      string
 }
 
 func (c *config) RegisterFlags(cmd *cobra.Command) {
@@ -47,6 +48,7 @@ func (c *config) RegisterFlags(cmd *cobra.Command) {
 	flags.StringVar(&c.MetricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flags.BoolVar(&c.EnableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flags.StringSliceVar(&c.WatchNamespaces, "watch-namespaces", nil, "The namespace(s) the manager should watch for changes. Defaults to watching all namespaces.")
+	flags.StringVar(&c.OperatorNamespace, "operator-namespace", "", "Namespace in which the operator is running. A ClusterProviderConfig's Secret and ConfigMap references resolve here.")
 }
 
 func (c *config) buildWebhookServerOptions() webhook.Options {
@@ -114,7 +116,7 @@ func (c *config) buildCacheOptions() cache.Options {
 		return cache.Options{}
 	}
 
-	namespaces := make(map[string]cache.Config, len(c.WatchNamespaces))
+	namespaces := make(map[string]cache.Config, len(c.WatchNamespaces)+1)
 
 	for _, ns := range c.WatchNamespaces {
 		if ns = strings.TrimSpace(ns); ns != "" {
@@ -122,7 +124,8 @@ func (c *config) buildCacheOptions() cache.Options {
 		}
 	}
 
-	setupLog.Info("Watching namespace(s)", "namespaces", c.WatchNamespaces)
+	namespaces[c.OperatorNamespace] = cache.Config{}
+	setupLog.Info("Watching namespace(s)", "namespaces", c.WatchNamespaces, "operator-namespace", c.OperatorNamespace)
 
 	return cache.Options{DefaultNamespaces: namespaces}
 }

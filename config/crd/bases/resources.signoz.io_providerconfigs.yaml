@@ -291,6 +291,19 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the metadata.generation the conditions
+                  were set from.
+                format: int64
+                type: integer
+              observedRefVersions:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ObservedRefVersions records the resourceVersion observed for each Secret
+                  and ConfigMap this object reads, keyed by "<kind>/<name>". It holds no
+                  credential material.
+                type: object
             type: object
         required:
         - spec

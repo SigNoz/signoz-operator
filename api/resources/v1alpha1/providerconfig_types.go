@@ -103,6 +103,16 @@ type ProviderConfigStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the metadata.generation the conditions were set from.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// ObservedRefVersions records the resourceVersion observed for each Secret
+	// and ConfigMap this object reads, keyed by "<kind>/<name>". It holds no
+	// credential material.
+	// +optional
+	ObservedRefVersions map[string]string `json:"observedRefVersions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
