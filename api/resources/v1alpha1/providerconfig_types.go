@@ -144,6 +144,44 @@ type ProviderConfigList struct {
 	Items           []ProviderConfig `json:"items"`
 }
 
+func (s *ProviderConfigSpec) SecretNames() map[string]struct{} {
+	names := make(map[string]struct{}, 3)
+
+	for _, src := range s.ValueSources() {
+		if src != nil && src.SecretKeyRef != nil && src.SecretKeyRef.Name != "" {
+			names[src.SecretKeyRef.Name] = struct{}{}
+		}
+	}
+
+	return names
+}
+
+func (s *ProviderConfigSpec) ConfigMapNames() map[string]struct{} {
+	names := make(map[string]struct{}, 2)
+
+	for _, src := range s.ValueSources() {
+		if src != nil && src.ConfigMapKeyRef != nil && src.ConfigMapKeyRef.Name != "" {
+			names[src.ConfigMapKeyRef.Name] = struct{}{}
+		}
+	}
+
+	return names
+}
+
+func (s *ProviderConfigSpec) ValueSources() []*ValueSource {
+	sources := []*ValueSource{s.Endpoint.ValueFrom}
+
+	if s.Auth.Header != nil {
+		sources = append(sources, s.Auth.Header.ValueFrom)
+	}
+
+	if s.TLS != nil && s.TLS.CASecretRef != nil {
+		sources = append(sources, &ValueSource{SecretKeyRef: s.TLS.CASecretRef})
+	}
+
+	return sources
+}
+
 func init() {
 	SchemeBuilder.Register(func(s *runtime.Scheme) error {
 		s.AddKnownTypes(SchemeGroupVersion, &ProviderConfig{}, &ProviderConfigList{})

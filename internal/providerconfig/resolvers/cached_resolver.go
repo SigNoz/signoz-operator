@@ -104,11 +104,11 @@ func (r *CachedResolver) Resolve(
 	// Read every reference up front, so the observed versions are complete whichever
 	// value later fails to validate. Failures are cached and returned from the field
 	// that needs them below.
-	for _, name := range SecretNames(spec) {
+	for name := range spec.SecretNames() {
 		_, _ = load.secret(ctx, load.objectKey(name))
 	}
 
-	for _, name := range ConfigMapNames(spec) {
+	for name := range spec.ConfigMapNames() {
 		_, _ = load.configMap(ctx, load.objectKey(name))
 	}
 
