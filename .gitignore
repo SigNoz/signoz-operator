@@ -77,3 +77,6 @@ CLAUDE.local.md
 bin/*
 Dockerfile.cross
 *.kubeconfig
+
+### Primus ###
+target/
