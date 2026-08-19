@@ -8,8 +8,9 @@ import (
 	"net/url"
 )
 
-// Connection is everything needed to send an authenticated request to SigNoz.
-type Connection struct {
+// ResolvedProviderConfig is a provider config's spec with every reference read:
+// everything needed to send an authenticated request to SigNoz.
+type ResolvedProviderConfig struct {
 	Endpoint   *url.URL
 	HeaderName string
 
@@ -23,24 +24,25 @@ type Connection struct {
 	CAPool *x509.CertPool
 }
 
-// String redacts the credential, so formatting a connection into a log line cannot
-// leak one. The receiver is a value so that both Connection and *Connection redact.
-func (c Connection) String() string {
+// String redacts the credential, so formatting a resolved config into a log line
+// cannot leak one. The receiver is a value so that both the value and pointer forms
+// redact.
+func (c ResolvedProviderConfig) String() string {
 	endpoint := ""
 	if c.Endpoint != nil {
 		endpoint = c.Endpoint.Redacted()
 	}
 
-	return fmt.Sprintf("Connection{endpoint: %s, header: %s, value: [REDACTED]}", endpoint, c.HeaderName)
+	return fmt.Sprintf("ResolvedProviderConfig{endpoint: %s, header: %s, value: [REDACTED]}", endpoint, c.HeaderName)
 }
 
-func (c Connection) SetAuthHeader(h http.Header) {
+func (c ResolvedProviderConfig) SetAuthHeader(h http.Header) {
 	h.Set(c.HeaderName, c.HeaderValue)
 }
 
-// TLSClientConfig is the TLS configuration the connection asks for, or nil when it
-// asks for none and the transport default applies.
-func (c Connection) TLSClientConfig() *tls.Config {
+// TLSClientConfig is the TLS configuration the resolved config asks for, or nil
+// when it asks for none and the transport default applies.
+func (c ResolvedProviderConfig) TLSClientConfig() *tls.Config {
 	if !c.InsecureSkipVerify && c.CAPool == nil {
 		return nil
 	}

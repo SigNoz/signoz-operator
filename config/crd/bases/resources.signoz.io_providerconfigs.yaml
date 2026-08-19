@@ -230,9 +230,8 @@ spec:
             description: status defines the observed state of ProviderConfig
             properties:
               conditions:
-                description: |-
-                  A Ready condition reports that the endpoint and credential resolved. It
-                  does not report that SigNoz answered.
+                description: A Ready condition reports that the endpoint and credential
+                  resolved. It does not report that SigNoz answered.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -298,11 +297,13 @@ spec:
                 type: integer
               observedRefVersions:
                 additionalProperties:
-                  type: string
+                  additionalProperties:
+                    type: string
+                  type: object
                 description: |-
                   ObservedRefVersions records the resourceVersion observed for each Secret
-                  and ConfigMap this object reads, keyed by "<kind>/<name>". It holds no
-                  credential material.
+                  and ConfigMap this object reads, keyed by kind, then by
+                  "<namespace>/<name>". It holds no credential material.
                 type: object
             type: object
         required:

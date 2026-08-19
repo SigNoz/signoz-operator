@@ -22,6 +22,8 @@ import (
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	resourcescontroller "github.com/SigNoz/signoz-operator/internal/controller/resources"
+	"github.com/SigNoz/signoz-operator/internal/providerconfig/reconcilers"
+	"github.com/SigNoz/signoz-operator/internal/providerconfig/resolvers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -84,17 +86,21 @@ func run(cfg *config) error {
 		return fmt.Errorf("could not create manager: %w", err)
 	}
 
+	commonReconciler := reconcilers.NewCommonReconciler(mgr.GetClient(), resolvers.NewCachedResolver(mgr.GetClient()))
+
 	if err := (&resourcescontroller.ProviderConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		CommonReconciler: commonReconciler,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("could not create controller resources-providerconfig: %w", err)
 	}
 
 	if err := (&resourcescontroller.ClusterProviderConfigReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Namespace: cfg.OperatorNamespace,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		CommonReconciler: commonReconciler,
+		Namespace:        cfg.OperatorNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("could not create controller resources-clusterproviderconfig: %w", err)
 	}

@@ -64,14 +64,3 @@ type Error struct {
 func (e *Error) Error() string { return e.Message }
 
 func (e *Error) Unwrap() error { return e.cause }
-
-// at prefixes the message with the spec field the failure was reached through, so
-// one Secret read for two fields reports the field that needed it.
-func (e *Error) at(path string) *Error {
-	return &Error{
-		Reason:  e.Reason,
-		Message: path + ": " + e.Message,
-		Outcome: e.Outcome,
-		cause:   e.cause,
-	}
-}

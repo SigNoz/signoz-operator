@@ -14,10 +14,12 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
-// ClusterProviderConfigReconciler reconciles a ClusterProviderConfig object
+// ClusterProviderConfigReconciler reconciles a ClusterProviderConfig object.
 type ClusterProviderConfigReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	CommonReconciler providerconfig.Reconciler
 
 	// Namespace is the operator's own namespace. A ClusterProviderConfig has no
 	// namespace of its own, so this is where its name-only Secret and ConfigMap
@@ -32,9 +34,9 @@ type ClusterProviderConfigReconciler struct {
 // +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 // Reconcile reports on the Ready condition whether the endpoint and credential this
-// ClusterProviderConfig names resolved. It does not contact SigNoz. References resolve
-// in the operator's namespace, so the credential a cluster-wide backend writes with is
-// one only a cluster administrator can place.
+// ClusterProviderConfig names resolved. References resolve in the operator's
+// namespace, so the credential a cluster-wide backend writes with is one only a
+// cluster administrator can place.
 func (r *ClusterProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ClusterProviderConfig{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
@@ -46,7 +48,7 @@ func (r *ClusterProviderConfigReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	return providerconfig.Reconcile(ctx, r.Client, config, &config.Spec, &config.Status, r.Namespace)
+	return r.CommonReconciler.Reconcile(ctx, config, &config.Spec, &config.Status, r.Namespace)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -63,8 +65,8 @@ func (r *ClusterProviderConfigReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&resourcesv1alpha1.ClusterProviderConfig{}).
-		Watches(&corev1.Secret{}, watchClusterProviderConfigReferences(r.Client, providerconfig.ReferenceKindSecret, r.Namespace)).
-		Watches(&corev1.ConfigMap{}, watchClusterProviderConfigReferences(r.Client, providerconfig.ReferenceKindConfigMap, r.Namespace)).
+		Watches(&corev1.Secret{}, watchClusterProviderConfigReferences(r.Client, secretRefsIndex, r.Namespace)).
+		Watches(&corev1.ConfigMap{}, watchClusterProviderConfigReferences(r.Client, configMapRefsIndex, r.Namespace)).
 		Named("resources-clusterproviderconfig").
 		Complete(r)
 }

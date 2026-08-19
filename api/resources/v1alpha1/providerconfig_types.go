@@ -6,10 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// ProviderConfigReference names the backend a resource writes through. Kind
+// ProviderConfigRef names the backend a resource writes through. Kind
 // ProviderConfig resolves in the resource's own namespace; ClusterProviderConfig
 // resolves cluster-wide. There is no namespace field.
-type ProviderConfigReference struct {
+type ProviderConfigRef struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -97,8 +97,7 @@ type ProviderConfigSpec struct {
 
 // ProviderConfigStatus is the shared observed state of ProviderConfig and ClusterProviderConfig.
 type ProviderConfigStatus struct {
-	// A Ready condition reports that the endpoint and credential resolved. It
-	// does not report that SigNoz answered.
+	// A Ready condition reports that the endpoint and credential resolved. It does not report that SigNoz answered.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -109,10 +108,10 @@ type ProviderConfigStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// ObservedRefVersions records the resourceVersion observed for each Secret
-	// and ConfigMap this object reads, keyed by "<kind>/<name>". It holds no
-	// credential material.
+	// and ConfigMap this object reads, keyed by kind, then by
+	// "<namespace>/<name>". It holds no credential material.
 	// +optional
-	ObservedRefVersions map[string]string `json:"observedRefVersions,omitempty"`
+	ObservedRefVersions map[string]map[string]string `json:"observedRefVersions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

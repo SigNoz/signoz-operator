@@ -13,10 +13,12 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
-// ProviderConfigReconciler reconciles a ProviderConfig object
+// ProviderConfigReconciler reconciles a ProviderConfig object.
 type ProviderConfigReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	CommonReconciler providerconfig.Reconciler
 }
 
 // +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -25,9 +27,8 @@ type ProviderConfigReconciler struct {
 // +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 // Reconcile reports on the Ready condition whether the endpoint and credential this
-// ProviderConfig names resolved. It does not contact SigNoz. References resolve in the
-// ProviderConfig's own namespace, so RBAC on the Secret there decides who writes
-// through this backend.
+// ProviderConfig names resolved. References resolve in the ProviderConfig's own
+// namespace, so RBAC on the Secret there decides who writes through this backend.
 func (r *ProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ProviderConfig{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
@@ -39,7 +40,7 @@ func (r *ProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	return providerconfig.Reconcile(ctx, r.Client, config, &config.Spec, &config.Status, config.Namespace)
+	return r.CommonReconciler.Reconcile(ctx, config, &config.Spec, &config.Status, config.Namespace)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -52,8 +53,8 @@ func (r *ProviderConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&resourcesv1alpha1.ProviderConfig{}).
-		Watches(&corev1.Secret{}, watchProviderConfigReferences(r.Client, providerconfig.ReferenceKindSecret)).
-		Watches(&corev1.ConfigMap{}, watchProviderConfigReferences(r.Client, providerconfig.ReferenceKindConfigMap)).
+		Watches(&corev1.Secret{}, watchProviderConfigReferences(r.Client, secretRefsIndex)).
+		Watches(&corev1.ConfigMap{}, watchProviderConfigReferences(r.Client, configMapRefsIndex)).
 		Named("resources-providerconfig").
 		Complete(r)
 }

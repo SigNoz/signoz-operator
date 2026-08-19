@@ -5,23 +5,24 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 )
 
-// conditionReady means the operator read the object, resolved the endpoint and
+// ConditionReady means the operator read the object, resolved the endpoint and
 // the credential, and could assemble an authenticated request from them. It does
-// not mean SigNoz answered. The vocabulary is private: callers hand SetConditions
-// a resolution outcome and this package owns what appears on status.
-const conditionReady = "Ready"
+// not mean SigNoz answered. Callers hand SetConditions a resolution outcome and
+// this package owns what appears on status.
+const ConditionReady = "Ready"
 
 // SetConditions renders one resolution outcome onto status: Ready True when the
 // spec resolved, False with the failure's reason and message otherwise. The
 // observed generation and reference versions are stamped alongside, so status
 // always describes one coherent observation.
-func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation int64, versions map[string]string, resolveErr error) {
+func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation int64, versions map[string]map[client.ObjectKey]string, resolveErr error) {
 	ready := metav1.Condition{
-		Type:               conditionReady,
+		Type:               ConditionReady,
 		Status:             metav1.ConditionTrue,
 		Reason:             ReasonResolved.String(),
 		Message:            "Endpoint and credential resolved",
@@ -46,7 +47,21 @@ func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation in
 	status.ObservedGeneration = generation
 
 	status.ObservedRefVersions = nil
-	if len(versions) > 0 {
-		status.ObservedRefVersions = versions
+
+	for kind, byKey := range versions {
+		if len(byKey) == 0 {
+			continue
+		}
+
+		if status.ObservedRefVersions == nil {
+			status.ObservedRefVersions = make(map[string]map[string]string, len(versions))
+		}
+
+		observed := make(map[string]string, len(byKey))
+		for key, version := range byKey {
+			observed[key.String()] = version
+		}
+
+		status.ObservedRefVersions[kind] = observed
 	}
 }
