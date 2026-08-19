@@ -12,7 +12,6 @@ linters:
     - gocyclo
     - govet
     - ineffassign
-    - lll
     - modernize
     - misspell
     - nakedret
@@ -31,20 +30,6 @@ linters:
       disable:
         - omitzero
         - newexpr
-  exclusions:
-    generated: lax
-    rules:
-      - linters:
-          - lll
-        path: api/*
-      - linters:
-          - dupl
-          - lll
-        path: internal/*
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
 formatters:
   enable:
     - gofmt
