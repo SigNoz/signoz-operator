@@ -9,6 +9,7 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/SigNoz/signoz-operator/internal/build"
 	internalconfig "github.com/SigNoz/signoz-operator/internal/config"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +40,7 @@ func main() {
 
 	cmd := &cobra.Command{
 		Use:          "signoz-operator",
+		Version:      build.Version,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			return internalconfig.Set(cmd, "signoz-operator")
@@ -101,7 +103,7 @@ func run(cfg *config) error {
 		return fmt.Errorf("could not set up ready check: %w", err)
 	}
 
-	setupLog.Info("Starting manager")
+	setupLog.Info("Starting manager", "version", build.Version)
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		return fmt.Errorf("manager exited: %w", err)

@@ -9,3 +9,6 @@
 # Re-include Go module files
 !go.mod
 !go.sum
+
+# Re-include prebuilt binaries used by Dockerfile.multi-arch
+!target/**
