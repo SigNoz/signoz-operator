@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
@@ -16,20 +17,23 @@ import (
 )
 
 type config struct {
-	LogLevel               string
-	MetricsBindAddress     string
-	HealthProbeBindAddress string
-	LeaderElect            bool
-	MetricsSecure          bool
-	WebhookCertPath        string
-	WebhookCertName        string
-	WebhookCertKey         string
-	MetricsCertPath        string
-	MetricsCertName        string
-	MetricsCertKey         string
-	EnableHTTP2            bool
-	WatchNamespaces        []string
-	OperatorNamespace      string
+	LogLevel                      string
+	MetricsBindAddress            string
+	HealthProbeBindAddress        string
+	LeaderElect                   bool
+	MetricsSecure                 bool
+	WebhookCertPath               string
+	WebhookCertName               string
+	WebhookCertKey                string
+	MetricsCertPath               string
+	MetricsCertName               string
+	MetricsCertKey                string
+	EnableHTTP2                   bool
+	DefaultResourcesInterval      time.Duration
+	DefaultResourcesRetryInterval time.Duration
+	DefaultResourcesTimeout       time.Duration
+	WatchNamespaces               []string
+	OperatorNamespace             string
 }
 
 func (c *config) RegisterFlags(cmd *cobra.Command) {
@@ -47,6 +51,9 @@ func (c *config) RegisterFlags(cmd *cobra.Command) {
 	flags.StringVar(&c.MetricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
 	flags.StringVar(&c.MetricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flags.BoolVar(&c.EnableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flags.DurationVar(&c.DefaultResourcesInterval, "default-resources-interval", 10*time.Minute, "Interval at which resources are reconciled against SigNoz. Applicable only when the resource spec omits .spec.interval.")
+	flags.DurationVar(&c.DefaultResourcesRetryInterval, "default-resources-retry-interval", time.Minute, "Interval at which a recoverable failure is retried. Applicable only when the resource spec omits .spec.retryInterval.")
+	flags.DurationVar(&c.DefaultResourcesTimeout, "default-resources-timeout", 30*time.Second, "Upper bound on a single reconciliation attempt when a resource's spec omits one. This includes the time taken by the SigNoz API.")
 	flags.StringSliceVar(&c.WatchNamespaces, "watch-namespaces", nil, "The namespace(s) the manager should watch for changes. Defaults to watching all namespaces.")
 	flags.StringVar(&c.OperatorNamespace, "operator-namespace", "", "Namespace in which the operator is running. A ClusterProviderConfig's Secret and ConfigMap references resolve here.")
 }
