@@ -26,7 +26,7 @@ func (r *CachedResolver) ResolveRef(
 	ctx context.Context,
 	ref resourcesv1alpha1.ProviderConfigRef,
 	resourceNamespace, operatorNamespace string,
-) (*providerconfig.ResolvedProviderConfig, error) {
+) (*providerconfig.ResolvedProviderConfigSpec, error) {
 	var spec *resourcesv1alpha1.ProviderConfigSpec
 
 	var refNamespace string
@@ -69,7 +69,7 @@ func (r *CachedResolver) Resolve(
 	ctx context.Context,
 	namespace string,
 	spec *resourcesv1alpha1.ProviderConfigSpec,
-) (*providerconfig.ResolvedProviderConfig, map[string]map[client.ObjectKey]string, error) {
+) (*providerconfig.ResolvedProviderConfigSpec, map[string]map[client.ObjectKey]string, error) {
 	c := &cache{
 		reader:     r.reader,
 		namespace:  namespace,
@@ -94,21 +94,19 @@ func (r *CachedResolver) Resolve(
 		return nil, c.versions, err
 	}
 
-	headerName, headerValue, err := c.credential(ctx, &spec.Auth)
+	auth, err := c.authentication(ctx, &spec.Auth)
 	if err != nil {
 		return nil, c.versions, err
 	}
 
-	insecure, caPool, err := c.trust(ctx, spec.TLS)
+	tlsConfig, err := c.trust(ctx, spec.TLS)
 	if err != nil {
 		return nil, c.versions, err
 	}
 
-	return &providerconfig.ResolvedProviderConfig{
-		Endpoint:           endpoint,
-		HeaderName:         headerName,
-		HeaderValue:        headerValue,
-		InsecureSkipVerify: insecure,
-		CAPool:             caPool,
+	return &providerconfig.ResolvedProviderConfigSpec{
+		Endpoint: endpoint,
+		Auth:     auth,
+		TLS:      tlsConfig,
 	}, c.versions, nil
 }

@@ -115,10 +115,10 @@ func (c *cache) endpoint(ctx context.Context, spec *resourcesv1alpha1.ProviderCo
 	return endpoint, nil
 }
 
-// credential returns the header name and value the set auth method sends.
-func (c *cache) credential(ctx context.Context, auth *resourcesv1alpha1.Authentication) (string, string, error) {
+// authentication resolves the one method set into the header it sends.
+func (c *cache) authentication(ctx context.Context, auth *resourcesv1alpha1.Authentication) (providerconfig.ResolvedAuthentication, error) {
 	if auth.Header == nil {
-		return "", "", errors.New("spec.auth: no authentication method set")
+		return providerconfig.ResolvedAuthentication{}, errors.New("spec.auth: no authentication method set")
 	}
 
 	const path = "spec.auth.header"
@@ -127,11 +127,11 @@ func (c *cache) credential(ctx context.Context, auth *resourcesv1alpha1.Authenti
 
 	value, err := c.value(ctx, path, header.Value, header.ValueFrom)
 	if err != nil {
-		return "", "", err
+		return providerconfig.ResolvedAuthentication{}, err
 	}
 
 	if value == "" {
-		return "", "", errors.New(path + ": credential resolved to an empty value")
+		return providerconfig.ResolvedAuthentication{}, errors.New(path + ": credential resolved to an empty value")
 	}
 
 	name := header.Name
@@ -139,20 +139,20 @@ func (c *cache) credential(ctx context.Context, auth *resourcesv1alpha1.Authenti
 		name = providerconfig.DefaultHeaderName
 	}
 
-	if header.Scheme != "" {
-		value = header.Scheme + " " + value
-	}
-
-	return name, value, nil
+	return providerconfig.ResolvedAuthentication{
+		Header: &providerconfig.ResolvedHeaderAuthentication{Name: name, Scheme: header.Scheme, Value: value},
+	}, nil
 }
 
-func (c *cache) trust(ctx context.Context, config *resourcesv1alpha1.TLSConfig) (bool, *x509.CertPool, error) {
+func (c *cache) trust(ctx context.Context, config *resourcesv1alpha1.TLSConfig) (*providerconfig.ResolvedTLSConfig, error) {
 	if config == nil {
-		return false, nil, nil
+		return nil, nil
 	}
 
+	resolved := &providerconfig.ResolvedTLSConfig{InsecureSkipVerify: config.InsecureSkipVerify}
+
 	if config.CASecretRef == nil {
-		return config.InsecureSkipVerify, nil, nil
+		return resolved, nil
 	}
 
 	const path = "spec.tls.caSecretRef"
@@ -161,20 +161,22 @@ func (c *cache) trust(ctx context.Context, config *resourcesv1alpha1.TLSConfig) 
 
 	secret, err := c.secret(ctx, client.ObjectKey{Namespace: c.namespace, Name: ref.Name})
 	if err != nil {
-		return config.InsecureSkipVerify, nil, fmt.Errorf("%s: %w", path, err)
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	bundle, ok := secret.Data[ref.Key]
 	if !ok {
-		return config.InsecureSkipVerify, nil, fmt.Errorf("%s: Secret %q has no key %q", path, ref.Name, ref.Key)
+		return nil, fmt.Errorf("%s: Secret %q has no key %q", path, ref.Name, ref.Key)
 	}
 
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(bundle) {
-		return config.InsecureSkipVerify, nil, fmt.Errorf("%s: Secret %q key %q holds no PEM certificate", path, ref.Name, ref.Key)
+		return nil, fmt.Errorf("%s: Secret %q key %q holds no PEM certificate", path, ref.Name, ref.Key)
 	}
 
-	return config.InsecureSkipVerify, pool, nil
+	resolved.CAPool = pool
+
+	return resolved, nil
 }
 
 // value returns a field's inline or sourced value, with path naming the field on
