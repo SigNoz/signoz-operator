@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -73,8 +74,8 @@ func (e *engine) Reconcile(ctx context.Context, obj resources.Object) (ctrl.Resu
 func (e *engine) reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
 	k8sObject := obj.K8sObject()
 
-	if !controllerutil.ContainsFinalizer(k8sObject, resources.Finalizer) {
-		controllerutil.AddFinalizer(k8sObject, resources.Finalizer)
+	if !controllerutil.ContainsFinalizer(k8sObject, resourcesv1alpha1.ResourceFinalizer) {
+		controllerutil.AddFinalizer(k8sObject, resourcesv1alpha1.ResourceFinalizer)
 		if err := e.client.Update(ctx, k8sObject); err != nil {
 			return ctrl.Result{}, fmt.Errorf("could not add finalizer: %w", err)
 		}
@@ -131,8 +132,12 @@ func (e *engine) reconcile(ctx context.Context, obj resources.Object) (ctrl.Resu
 }
 
 // establish resolves the "does this object exist yet" question of
-// docs/idempotency.md, folding first-contact adoption, the create-attempt
-// record and ambiguity into one Find-first branch.
+// docs/idempotency.md in one Find-first branch: a single match is adopted —
+// whether it is the operator resolving its own unconfirmed POST or first
+// contact with an object built some other way, the CR names the identity and
+// owns it. A signoz-resource-id annotation pins the adoption to one id among
+// the identity's matches; it selects, never overrides — an id outside the
+// matches is refused rather than adopted under the wrong identity.
 func (e *engine) establish(
 	ctx context.Context,
 	obj resources.Object,
@@ -141,30 +146,27 @@ func (e *engine) establish(
 ) (ctrl.Result, error) {
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
-	annotations := obj.K8sObject().GetAnnotations()
-	_, attempted := annotations[resources.AnnotationCreateAttempt]
 
 	found, err := e.adapter.Find(ctx, c, obj)
 	if err != nil {
 		return e.fail(obj, resources.AdapterOperationFind, err)
 	}
 
+	if pinned := obj.K8sObject().GetAnnotations()[resourcesv1alpha1.AnnotationSigNozResourceID]; pinned != "" {
+		for _, resourceMetadata := range found {
+			if resourceMetadata.ID != nil && *resourceMetadata.ID == pinned {
+				return e.adopt(ctx, obj, c, resourceMetadata, hash)
+			}
+		}
+
+		resources.SetConditions(status, generation, resources.ReconcilerOutcomeTerminal, resources.ReasonSigNozResourceIDMismatch,
+			fmt.Sprintf("annotation %s: no object with id %q matches identity %q%s", resourcesv1alpha1.AnnotationSigNozResourceID, pinned, identity, candidateIDs(found)))
+
+		return ctrl.Result{}, nil
+	}
+
 	switch len(found) {
 	case 1:
-		// With a create-attempt recorded, this is the operator resolving its own
-		// POST, so it adopts ungated. Without one, it is first contact with an
-		// object a user built, so adoption waits for the explicit gate.
-		if attempted {
-			return e.adopt(ctx, obj, c, found[0], hash)
-		}
-
-		if _, gated := annotations[resources.AnnotationAdoptExisting]; !gated {
-			resources.SetConditions(status, generation, resources.ReconcilerOutcomeTerminal, resources.ReasonAdoptionRequired,
-				fmt.Sprintf("an object with identity %q already exists in SigNoz; set annotation %s=true to adopt it", identity, resources.AnnotationAdoptExisting))
-
-			return ctrl.Result{}, nil
-		}
-
 		return e.adopt(ctx, obj, c, found[0], hash)
 
 	case 0:
@@ -172,10 +174,28 @@ func (e *engine) establish(
 
 	default:
 		resources.SetConditions(status, generation, resources.ReconcilerOutcomeTerminal, resources.ReasonAmbiguous,
-			fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q; the operator will not guess", len(found), identity))
+			fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q%s; set annotation %s to the id of the one to adopt", len(found), identity, candidateIDs(found), resourcesv1alpha1.AnnotationSigNozResourceID))
 
 		return ctrl.Result{}, nil
 	}
+}
+
+// candidateIDs renders the ids of the matched objects for a condition message,
+// empty when none carries one.
+func candidateIDs(found []*resourcesv1alpha1.SigNozResource) string {
+	ids := make([]string, 0, len(found))
+
+	for _, resourceMetadata := range found {
+		if resourceMetadata.ID != nil {
+			ids = append(ids, *resourceMetadata.ID)
+		}
+	}
+
+	if len(ids) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(" (ids %s)", strings.Join(ids, ", "))
 }
 
 // create records the attempt, then POSTs once. The POST is never retried within
@@ -205,7 +225,7 @@ func (e *engine) create(
 		return ctrl.Result{}, err
 	}
 
-	status.SigNozResourceMetadata = resourceMetadata
+	status.SigNozResource = resourceMetadata
 	status.ObservedHash = hash
 	resources.SetConditions(status, generation, resources.ReconcilerOutcomeSynced, resources.ReasonCreated, "Created in SigNoz")
 
@@ -286,7 +306,7 @@ func (e *engine) resolveConflict(
 
 	default:
 		resources.SetConditions(status, generation, resources.ReconcilerOutcomeTerminal, resources.ReasonAmbiguous,
-			fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q; the operator will not guess", len(found), identity))
+			fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q%s; set annotation %s to the id of the one to adopt", len(found), identity, candidateIDs(found), resourcesv1alpha1.AnnotationSigNozResourceID))
 
 		return ctrl.Result{}, nil
 	}
@@ -299,7 +319,7 @@ func (e *engine) adopt(
 	ctx context.Context,
 	obj resources.Object,
 	c clients.SigNoz,
-	resourceMetadata *resourcesv1alpha1.ResourceMetadata,
+	resourceMetadata *resourcesv1alpha1.SigNozResource,
 	hash string,
 ) (ctrl.Result, error) {
 	// Clear the record before touching status: a metadata patch re-reads the
@@ -308,7 +328,7 @@ func (e *engine) adopt(
 		return ctrl.Result{}, err
 	}
 
-	obj.GetCoreStatus().SigNozResourceMetadata = resourceMetadata
+	obj.GetCoreStatus().SigNozResource = resourceMetadata
 
 	return e.reconcileExisting(ctx, obj, c, hash)
 }
@@ -325,7 +345,7 @@ func (e *engine) reconcileExisting(
 ) (ctrl.Result, error) {
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
-	resourceMetadata := status.SigNozResourceMetadata
+	resourceMetadata := status.SigNozResource
 
 	found, upToDate, err := e.adapter.Observe(ctx, c, obj, resourceMetadata)
 	if err != nil {
@@ -336,7 +356,7 @@ func (e *engine) reconcileExisting(
 		// The remote is gone. Drop the stale metadata; the create-attempt record
 		// is already cleared, so the next pass finds nothing and creates afresh
 		// with no risk of a duplicate.
-		status.SigNozResourceMetadata = nil
+		status.SigNozResource = nil
 		status.ObservedHash = ""
 		resources.SetConditions(status, generation, resources.ReconcilerOutcomePending, resources.ReasonPending, "The SigNoz object was not found; it will be recreated")
 
@@ -374,7 +394,7 @@ func (e *engine) reconcileExisting(
 func (e *engine) finalize(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
-	if !controllerutil.ContainsFinalizer(obj.K8sObject(), resources.Finalizer) {
+	if !controllerutil.ContainsFinalizer(obj.K8sObject(), resourcesv1alpha1.ResourceFinalizer) {
 		return ctrl.Result{}, nil
 	}
 
@@ -391,7 +411,7 @@ func (e *engine) finalize(ctx context.Context, obj resources.Object) (ctrl.Resul
 		return ctrl.Result{RequeueAfter: e.retryInterval(obj)}, nil
 	}
 
-	resourceMetadata := obj.GetCoreStatus().SigNozResourceMetadata
+	resourceMetadata := obj.GetCoreStatus().SigNozResource
 	if currentID(obj.GetCoreStatus()) == "" {
 		// An unconfirmed create may have left an object behind. Resolve it by
 		// identity, and only drop the finalizer when a lookup positively confirms
@@ -437,7 +457,7 @@ func (e *engine) finalize(ctx context.Context, obj resources.Object) (ctrl.Resul
 func (e *engine) removeFinalizer(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
 	k8sObject := obj.K8sObject()
 
-	controllerutil.RemoveFinalizer(k8sObject, resources.Finalizer)
+	controllerutil.RemoveFinalizer(k8sObject, resourcesv1alpha1.ResourceFinalizer)
 
 	if err := e.client.Update(ctx, k8sObject); err != nil {
 		return ctrl.Result{}, fmt.Errorf("could not remove finalizer: %w", err)
@@ -515,7 +535,7 @@ func (e *engine) recordCreateAttempt(ctx context.Context, obj resources.Object) 
 		annotations = map[string]string{}
 	}
 
-	annotations[resources.AnnotationCreateAttempt] = time.Now().UTC().Format(time.RFC3339)
+	annotations[resourcesv1alpha1.AnnotationCreateAttempt] = time.Now().UTC().Format(time.RFC3339)
 	k8sObject.SetAnnotations(annotations)
 
 	return e.client.Patch(ctx, k8sObject, patch)
@@ -524,14 +544,14 @@ func (e *engine) recordCreateAttempt(ctx context.Context, obj resources.Object) 
 func (e *engine) clearCreateAttempt(ctx context.Context, obj resources.Object) error {
 	k8sObject := obj.K8sObject()
 
-	if _, ok := k8sObject.GetAnnotations()[resources.AnnotationCreateAttempt]; !ok {
+	if _, ok := k8sObject.GetAnnotations()[resourcesv1alpha1.AnnotationCreateAttempt]; !ok {
 		return nil
 	}
 
 	patch := client.MergeFrom(k8sObject.DeepCopyObject().(client.Object))
 
 	annotations := k8sObject.GetAnnotations()
-	delete(annotations, resources.AnnotationCreateAttempt)
+	delete(annotations, resourcesv1alpha1.AnnotationCreateAttempt)
 	k8sObject.SetAnnotations(annotations)
 
 	return e.client.Patch(ctx, k8sObject, patch)
@@ -574,8 +594,8 @@ func (e *engine) retryInterval(obj resources.Object) time.Duration {
 // currentID reads the id out of the recorded resource metadata, empty when no
 // create or lookup has confirmed one yet.
 func currentID(status *resourcesv1alpha1.CoreStatus) string {
-	if status.SigNozResourceMetadata != nil && status.SigNozResourceMetadata.ID != nil {
-		return *status.SigNozResourceMetadata.ID
+	if status.SigNozResource != nil && status.SigNozResource.ID != nil {
+		return *status.SigNozResource.ID
 	}
 
 	return ""

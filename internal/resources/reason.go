@@ -17,9 +17,9 @@ var (
 	// resolves itself. Never guessed.
 	ReasonAmbiguous = Reason{s: "Ambiguous"}
 
-	// ReasonAdoptionRequired is an existing object matching this resource's
-	// identity, with no create-attempt recorded and no adopt-existing gate set.
-	ReasonAdoptionRequired = Reason{s: "AdoptionRequired"}
+	// ReasonSigNozResourceIDMismatch is a pinned signoz-resource-id naming no
+	// object among those matching this resource's identity. The resource's own.
+	ReasonSigNozResourceIDMismatch = Reason{s: "SigNozResourceIDMismatch"}
 
 	// ReasonUnauthorized is a credential the server rejected (401/403).
 	// Attributable to the provider config.

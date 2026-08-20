@@ -4,6 +4,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// AnnotationCreateAttempt records, before a create is issued, that the
+	// operator is about to POST. It lives in metadata, not status, so it survives
+	// a restore that drops status. Its value is the RFC3339 time of the attempt.
+	// See docs/idempotency.md.
+	AnnotationCreateAttempt = "resources.signoz.io/create-attempt"
+
+	// AnnotationSigNozResourceID pins the SigNoz object this resource mirrors, by
+	// the id SigNoz assigned — the same id status.signozResource.id records. Read
+	// whenever status holds no id: the pinned object must be among the objects
+	// matching the resource's identity, and is then adopted. It names the winner
+	// when more than one object matches (Ambiguous), and it is durable, so a
+	// resource restored without status re-adopts the same object.
+	AnnotationSigNozResourceID = "resources.signoz.io/signoz-resource-id"
+
+	// ResourceFinalizer keeps the custom resource until the operator has applied
+	// the reclaim policy to the SigNoz object it mirrors.
+	ResourceFinalizer = "resources.signoz.io/finalizer"
+)
+
 // ReclaimPolicy controls what happens to the SigNoz object when the custom
 // resource that mirrors it is deleted.
 // +kubebuilder:validation:Enum=Delete;Orphan
@@ -59,10 +79,10 @@ type CoreSpec struct {
 	ReclaimPolicy ReclaimPolicy `json:"reclaimPolicy,omitempty"`
 }
 
-// ResourceMetadata records the identity of the object this resource maps to in
-// SigNoz. It is a nested struct rather than a bare field, so a further
+// SigNozResource records the identity of the object this resource maps
+// to in SigNoz. It is a nested struct rather than a bare field, so a further
 // identifier can be added without a schema break. See docs/core-status.md.
-type ResourceMetadata struct {
+type SigNozResource struct {
 	// ID is the identifier SigNoz assigned, set once the operator has created or
 	// adopted the remote object.
 	// +optional
@@ -79,11 +99,11 @@ type CoreStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// SigNozResourceMetadata records the object's identity in SigNoz. Its ID is
+	// SigNozResource records the object's identity in SigNoz. Its ID is
 	// empty until a create or lookup confirms it. It is a cache, not the source
 	// of truth for identity: if lost, the next reconcile re-discovers it.
 	// +optional
-	SigNozResourceMetadata *ResourceMetadata `json:"signozResourceMetadata,omitempty"`
+	SigNozResource *SigNozResource `json:"signozResource,omitempty"`
 
 	// ObservedGeneration is the metadata.generation the operator last reconciled.
 	// +optional

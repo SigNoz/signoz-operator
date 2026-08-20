@@ -16,9 +16,9 @@ The desired-state half of the same shared struct — the provider-config referen
 
 - **Condition *types* must be uniform across every kind.** This is a choice, not a platform limit. `kubectl wait --for=condition=Ready`, GitOps health checks, and every generic dashboard key off a condition type string; if `Dashboard` reports `DashboardSynchronized` and `Rule` reports `RuleSynchronized`, none of those tools work across kinds. Per-kind detail **must not** go in the type — it goes in the `reason` and `message`. The type vocabulary is fixed and shared.
 
-- **Status must not be load-bearing for identity.** Status is a subresource and there are real paths where the object survives without it — a restore from a backup that excludes status is the common one. So the *guarantee* against creating a duplicate must not rest on status: it lives in `metadata` (the create-attempt annotation) and in the reconcile's `Find` step, per [idempotency.md](idempotency.md). Status still records the identity in `signozResourceMetadata.id`, but only as a cache — if it is lost, the next reconcile re-discovers it via `Find`, so the loss forces a lookup, never a second remote object.
+- **Status must not be load-bearing for identity.** Status is a subresource and there are real paths where the object survives without it — a restore from a backup that excludes status is the common one. So the *guarantee* against creating a duplicate must not rest on status: it lives in `metadata` (the create-attempt annotation) and in the reconcile's `Find` step, per [idempotency.md](idempotency.md). Status still records the identity in `signozResource.id`, but only as a cache — if it is lost, the next reconcile re-discovers it via `Find`, so the loss forces a lookup, never a second remote object.
 
-- **We cannot change the SigNoz API.** The identifier is assigned by the server on create and is not something the operator or the user can choose, so `signozResourceMetadata.id` is always discovered, and always empty for the interval between a CR being applied and its remote object being confirmed.
+- **We cannot change the SigNoz API.** The identifier is assigned by the server on create and is not something the operator or the user can choose, so `signozResource.id` is always discovered, and always empty for the interval between a CR being applied and its remote object being confirmed.
 
 Whatever status carries therefore has to use a fixed, kind-independent condition vocabulary, has to survive being partially dropped, and has to represent "we do not yet know" as a first-class value rather than as a false negative.
 
@@ -60,7 +60,7 @@ type CoreStatus struct {
     Conditions []metav1.Condition `json:"conditions,omitempty"`
 
     // +optional
-    SigNozResourceMetadata *ResourceMetadata `json:"signozResourceMetadata,omitempty"`
+    SigNozResource *SigNozResource `json:"signozResource,omitempty"`
 
     // +optional
     ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -72,10 +72,10 @@ type CoreStatus struct {
     ReconciledAt metav1.Time `json:"reconciledAt,omitempty"`
 }
 
-// ResourceMetadata records the identity of the object this resource maps to in
+// SigNozResource records the identity of the object this resource maps to in
 // SigNoz. It is a nested struct rather than a bare field, so a further identifier can be added
 // without a schema break.
-type ResourceMetadata struct {
+type SigNozResource struct {
     // ID is the identifier SigNoz assigned, set once the operator has created
     // or adopted the remote object.
     // +optional
@@ -88,7 +88,7 @@ The fields:
 | Field | What it holds | Why it is there |
 |---|---|---|
 | `conditions` | The condition set below, keyed by `type`. `+listType=map` / `+listMapKey=type` so a server-side apply merges a single condition rather than replacing the list. | The reporting channel. `metav1.Condition` + `meta.SetStatusCondition` gives correct `lastTransitionTime` handling for free. |
-| `signozResourceMetadata` | A nested record of the object's identity in SigNoz; `.id` is the SigNoz-assigned identifier, set once a create or lookup confirms it, empty until then. Nested rather than a bare field so a future field slots in without a schema break. | The link from CR to remote object. An empty `.id` alongside a create-attempt annotation is the "outcome unknown" window described in [idempotency.md](idempotency.md). |
+| `signozResource` | A nested record of the object's identity in SigNoz; `.id` is the SigNoz-assigned identifier, set once a create or lookup confirms it, empty until then. Nested rather than a bare field so a future field slots in without a schema break. | The link from CR to remote object. An empty `.id` alongside a create-attempt annotation is the "outcome unknown" window described in [idempotency.md](idempotency.md). |
 | `observedGeneration` | The `.metadata.generation` the operator last reconciled. | A reader compares it to the live `.metadata.generation` to tell whether the latest spec has been observed yet; a stale value means the operator has not caught up. Matches the Kubernetes convention that *"observedGeneration represents the .metadata.generation that the condition was set based upon."* ([Kubernetes API conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties)) |
 | `observedHash` | A hash of the last body the operator sent to SigNoz. | A fast path that lets a reconcile skip the remote GET when nothing in desired state changed. It is an optimisation, never the drift mechanism — see the consequence below. |
 | `reconciledAt` | When the operator last reconciled the resource against SigNoz. | Makes the periodic re-check visible, so a reader can see the resource is being actively watched and not merely reconciled once at apply time. |
@@ -117,7 +117,7 @@ Which API outcome maps to `Terminal` versus `Recoverable` is a per-resource tabl
 
 - `observedHash` matching does not prove the remote is in sync — it only proves desired state has not changed since the last write. An edit made directly in the SigNoz UI leaves the hash untouched, so correctness rests on periodically fetching the remote and comparing it, with the hash only skipping that fetch when desired state is unchanged. If the hash were ever treated as the drift check, out-of-band edits would persist silently.
 
-- `signozResourceMetadata.id` can be empty on a resource that has in fact been created, during the window before the outcome is confirmed. That window is reported as `Synced=Unknown`, and the create-attempt annotation in `metadata` — not status — is what prevents a duplicate. A backup that restores spec and metadata but drops status loses `signozResourceMetadata.id` and forces a lookup on the next reconcile, which is acceptable precisely because identity does not depend on status surviving.
+- `signozResource.id` can be empty on a resource that has in fact been created, during the window before the outcome is confirmed. That window is reported as `Synced=Unknown`, and the create-attempt annotation in `metadata` — not status — is what prevents a duplicate. A backup that restores spec and metadata but drops status loses `signozResource.id` and forces a lookup on the next reconcile, which is acceptable precisely because identity does not depend on status surviving.
 
 - `lastTransitionTime` moves only on a real state change, because conditions are written through `meta.SetStatusCondition`. A reconcile that observes no change writes no transition, so the object does not churn and `resourceVersion` does not advance needlessly.
 

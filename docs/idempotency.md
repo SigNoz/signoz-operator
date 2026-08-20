@@ -62,14 +62,14 @@ The guarantee is deliberately narrower than exactly-once:
 
 Only two things vary per resource: an `Identity` function returning a key derived purely from desired state, which the kind supplies as part of the seam in [resources.md](resources.md), and a `List` or `Get` on the adapter using the cheapest filter the endpoint offers. `Find` composes them generically — try the recorded identifier, fall through on 404, then resolve by identity, where exactly one match is ours, zero means not created, and more than one is ambiguous and never guessed.
 
-The create sequence is then identical everywhere. `A` is the `resources.signoz.io/create-attempt` annotation, and first-contact adoption is gated on a second annotation, `resources.signoz.io/adopt-existing`:
+The create sequence is then identical everywhere. `A` is the `resources.signoz.io/create-attempt` annotation:
 
 ```
 1. desired, hash := Render(cr)
 
-2. if status.signozResourceMetadata.id == "" and A is absent:
+2. if status.signozResource.id == "" and A is absent:
        Find()
-         found      → adopt (gated on resources.signoz.io/adopt-existing)
+         found      → adopt
          ambiguous  → Terminal
          not found  → continue
 
@@ -77,13 +77,13 @@ The create sequence is then identical everywhere. `A` is the `resources.signoz.i
    (if this write fails, do not POST)
 
 4. POST — never retried
-     201             → status.signozResourceMetadata.id = id; clear A; Synced=True
+     201             → status.signozResource.id = id; clear A; Synced=True
      409             → it exists: Find() → adopt; if still not found → Terminal
      other 4xx       → Terminal; clear A (nothing was created)
      5xx / timeout / connection error
                      → outcome UNKNOWN: leave A set; Synced=Unknown; requeue
 
-5. any reconcile with A set and status.signozResourceMetadata.id == "":
+5. any reconcile with A set and status.signozResource.id == "":
        Find()
          1 match              → adopt; clear A
          >1                   → Terminal (ambiguous) — never guess
@@ -91,7 +91,9 @@ The create sequence is then identical everywhere. `A` is the `resources.signoz.i
          0, past grace period → nothing was created; clear A; go to 3
 ```
 
-The `adopt-existing` gate is on step 2 only. Steps 4 and 5 run with `A` already on the object, which is the operator's own record that it issued the create, so taking ownership of what it finds there is resolving its own attempt rather than claiming a user's object.
+Adoption on a single match is unconditional. The identity is derived from the custom resource's own spec, so declaring the resource is declaring ownership of the object that carries that identity, and the operator's job from that point is to converge the object onto desired state. This makes adoption and recovery the same path: a custom resource that lost its recorded identifier — restored from a backup that excludes status, or deleted and recreated — finds exactly one match on its next reconcile and carries on.
+
+When more than one object matches, the `resources.signoz.io/signoz-resource-id` annotation names the winner. Its value is the id SigNoz assigned — the same id `status.signozResource.id` records — and while status holds no id, the pinned object is the one adopted. The pin selects among the identity's matches and never overrides them: an id naming an object outside the matches goes `Terminal` rather than being adopted under the wrong identity, and a present pin also suppresses the create, because an explicit "adopt this" that cannot be honoured must not quietly produce a new object. The annotation is durable, so a resource restored without status re-adopts the same object even if duplicates have appeared since.
 
 The annotation lives in `metadata` rather than `status` because status is a subresource and there are real paths where the object survives without it, such as a restore from a backup that excludes status.
 
@@ -105,9 +107,9 @@ The grace period exists because an immediate `Find` returning zero does not prov
 
 - **409 is classified by method, not by status code alone.** On create it means "already exists", and the response is to resolve and adopt. A 409 on any other method carries no such meaning — an endpoint that returns it on delete because the object is still referenced is reporting a condition to retry, not an object to adopt. An adapter that classifies on the code alone will adopt on a delete conflict.
 
-- First contact with an existing object is never implicit. A custom resource whose identity matches an object already in SigNoz, with no create-attempt recorded, goes `Terminal` unless `resources.signoz.io/adopt-existing` is present. Importing an existing object costs one extra step, and the operator will not take over something a user built by hand until it is told to.
+- First contact with an existing object adopts it. Importing an object into the operator costs nothing beyond writing the custom resource that names it, and a fleet of resources restored from backup converges without per-object intervention. The cost is that a collision resolves by takeover: a resource naming an identity that already exists in SigNoz claims that object, drives it to desired state, and on deletion applies its reclaim policy to an object the operator did not create. Where taking over must not imply deleting, `reclaimPolicy: Orphan` is the control.
 
-- Ambiguity is reported, not resolved. More than one candidate produces `Terminal` with a message naming the count and the key — `ambiguous: 2 alert rules named X` — and the operator does not write, delete, or guess. This is reachable only for resources whose uniqueness the operator enforces itself, and in practice only when someone creates a same-named object through the SigNoz UI.
+- Ambiguity is reported with its resolution in hand. More than one candidate produces `Terminal` with a message naming the count, the key and the candidate ids, and the operator does not write, delete, or guess. The user resolves it in-band by setting `resources.signoz.io/signoz-resource-id` to the id of the object this resource mirrors, or out-of-band by removing a duplicate in SigNoz. This is reachable only for resources whose uniqueness the operator enforces itself, and in practice only when someone creates a same-named object through the SigNoz UI.
 
 - `Find` costs a list call, so it runs only on the recovery path when the identifier is empty, never on every reconcile.
 
