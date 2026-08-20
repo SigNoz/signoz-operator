@@ -1,10 +1,23 @@
 package v1alpha1
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+// The kinds a provider config references, derived the way a scheme derives kind
+// names: from the Go type name.
+var (
+	ProviderConfigObservedRefKindSecret    = ProviderConfigObservedRefKind(reflect.TypeFor[corev1.Secret]().Name())
+	ProviderConfigObservedRefKindConfigMap = ProviderConfigObservedRefKind(reflect.TypeFor[corev1.ConfigMap]().Name())
+)
+
+// ProviderConfigObservedRefKind keys status.observedRefVersions. A named string,
+// not a closed struct: an API map key must serialize as a string.
+type ProviderConfigObservedRefKind string
 
 // ProviderConfigRef names the backend a resource writes through. Kind
 // ProviderConfig resolves in the resource's own namespace; ClusterProviderConfig
@@ -111,7 +124,7 @@ type ProviderConfigStatus struct {
 	// and ConfigMap this object reads, keyed by kind, then by
 	// "<namespace>/<name>". It holds no credential material.
 	// +optional
-	ObservedRefVersions map[string]map[string]string `json:"observedRefVersions,omitempty"`
+	ObservedRefVersions map[ProviderConfigObservedRefKind]map[string]string `json:"observedRefVersions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

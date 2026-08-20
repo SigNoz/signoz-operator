@@ -237,7 +237,7 @@ func (in *ProviderConfigStatus) DeepCopyInto(out *ProviderConfigStatus) {
 	}
 	if in.ObservedRefVersions != nil {
 		in, out := &in.ObservedRefVersions, &out.ObservedRefVersions
-		*out = make(map[string]map[string]string, len(*in))
+		*out = make(map[ProviderConfigObservedRefKind]map[string]string, len(*in))
 		for key, val := range *in {
 			var outVal map[string]string
 			if val == nil {

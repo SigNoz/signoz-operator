@@ -16,7 +16,7 @@ type Resolver interface {
 	// Resolve resolves spec's references in namespace. The returned map records
 	// the resourceVersion observed per reference, keyed by kind then object key,
 	// for status.observedRefVersions; it is returned on failure too.
-	Resolve(ctx context.Context, namespace string, spec *resourcesv1alpha1.ProviderConfigSpec) (*ResolvedProviderConfigSpec, map[string]map[client.ObjectKey]string, error)
+	Resolve(ctx context.Context, namespace string, spec *resourcesv1alpha1.ProviderConfigSpec) (*ResolvedProviderConfigSpec, map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]string, error)
 
 	// ResolveRef resolves the provider config ref names: kind ProviderConfig
 	// reads its references in resourceNamespace, ClusterProviderConfig in

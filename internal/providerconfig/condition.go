@@ -16,7 +16,7 @@ const ConditionReady = "Ready"
 
 // SetConditions renders one resolution outcome onto status: Ready True when the
 // spec resolved, False with the failure's reason and message otherwise.
-func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation int64, versions map[string]map[client.ObjectKey]string, resolveErr error) {
+func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation int64, versions map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]string, resolveErr error) {
 	ready := metav1.Condition{
 		Type:               ConditionReady,
 		Status:             metav1.ConditionTrue,
@@ -50,7 +50,7 @@ func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation in
 		}
 
 		if status.ObservedRefVersions == nil {
-			status.ObservedRefVersions = make(map[string]map[string]string, len(versions))
+			status.ObservedRefVersions = make(map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[string]string, len(versions))
 		}
 
 		observed := make(map[string]string, len(byKey))

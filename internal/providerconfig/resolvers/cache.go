@@ -15,12 +15,6 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
-// Keys of the errs and versions maps, as they appear in status.observedRefVersions.
-const (
-	kindSecret    = "Secret"
-	kindConfigMap = "ConfigMap"
-)
-
 // cache backs one Resolve call: each referenced object is read once, its
 // resourceVersion recorded, and a failed read replayed against every field that
 // needs it. errs and versions key by kind first, disambiguating a Secret and
@@ -30,11 +24,11 @@ type cache struct {
 	namespace  string
 	secrets    map[client.ObjectKey]*corev1.Secret
 	configMaps map[client.ObjectKey]*corev1.ConfigMap
-	errs       map[string]map[client.ObjectKey]error
-	versions   map[string]map[client.ObjectKey]string
+	errs       map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]error
+	versions   map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]string
 }
 
-func (c *cache) fail(kind string, objectKey client.ObjectKey, err error) error {
+func (c *cache) fail(kind resourcesv1alpha1.ProviderConfigObservedRefKind, objectKey client.ObjectKey, err error) error {
 	if c.errs[kind] == nil {
 		c.errs[kind] = map[client.ObjectKey]error{}
 	}
@@ -44,7 +38,7 @@ func (c *cache) fail(kind string, objectKey client.ObjectKey, err error) error {
 	return err
 }
 
-func (c *cache) observe(kind string, objectKey client.ObjectKey, version string) {
+func (c *cache) observe(kind resourcesv1alpha1.ProviderConfigObservedRefKind, objectKey client.ObjectKey, version string) {
 	if c.versions[kind] == nil {
 		c.versions[kind] = map[client.ObjectKey]string{}
 	}
@@ -53,7 +47,7 @@ func (c *cache) observe(kind string, objectKey client.ObjectKey, version string)
 }
 
 func (c *cache) secret(ctx context.Context, objectKey client.ObjectKey) (*corev1.Secret, error) {
-	if err, ok := c.errs[kindSecret][objectKey]; ok {
+	if err, ok := c.errs[resourcesv1alpha1.ProviderConfigObservedRefKindSecret][objectKey]; ok {
 		return nil, err
 	}
 
@@ -63,17 +57,17 @@ func (c *cache) secret(ctx context.Context, objectKey client.ObjectKey) (*corev1
 
 	secret := &corev1.Secret{}
 	if err := c.reader.Get(ctx, objectKey, secret); err != nil {
-		return nil, c.fail(kindSecret, objectKey, fmt.Errorf("could not read Secret %q in namespace %q: %w", objectKey.Name, objectKey.Namespace, err))
+		return nil, c.fail(resourcesv1alpha1.ProviderConfigObservedRefKindSecret, objectKey, fmt.Errorf("could not read Secret %q in namespace %q: %w", objectKey.Name, objectKey.Namespace, err))
 	}
 
 	c.secrets[objectKey] = secret
-	c.observe(kindSecret, objectKey, secret.ResourceVersion)
+	c.observe(resourcesv1alpha1.ProviderConfigObservedRefKindSecret, objectKey, secret.ResourceVersion)
 
 	return secret, nil
 }
 
 func (c *cache) configMap(ctx context.Context, objectKey client.ObjectKey) (*corev1.ConfigMap, error) {
-	if err, ok := c.errs[kindConfigMap][objectKey]; ok {
+	if err, ok := c.errs[resourcesv1alpha1.ProviderConfigObservedRefKindConfigMap][objectKey]; ok {
 		return nil, err
 	}
 
@@ -83,11 +77,11 @@ func (c *cache) configMap(ctx context.Context, objectKey client.ObjectKey) (*cor
 
 	configMap := &corev1.ConfigMap{}
 	if err := c.reader.Get(ctx, objectKey, configMap); err != nil {
-		return nil, c.fail(kindConfigMap, objectKey, fmt.Errorf("could not read ConfigMap %q in namespace %q: %w", objectKey.Name, objectKey.Namespace, err))
+		return nil, c.fail(resourcesv1alpha1.ProviderConfigObservedRefKindConfigMap, objectKey, fmt.Errorf("could not read ConfigMap %q in namespace %q: %w", objectKey.Name, objectKey.Namespace, err))
 	}
 
 	c.configMaps[objectKey] = configMap
-	c.observe(kindConfigMap, objectKey, configMap.ResourceVersion)
+	c.observe(resourcesv1alpha1.ProviderConfigObservedRefKindConfigMap, objectKey, configMap.ResourceVersion)
 
 	return configMap, nil
 }

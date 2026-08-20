@@ -69,14 +69,14 @@ func (r *CachedResolver) Resolve(
 	ctx context.Context,
 	namespace string,
 	spec *resourcesv1alpha1.ProviderConfigSpec,
-) (*providerconfig.ResolvedProviderConfigSpec, map[string]map[client.ObjectKey]string, error) {
+) (*providerconfig.ResolvedProviderConfigSpec, map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]string, error) {
 	c := &cache{
 		reader:     r.reader,
 		namespace:  namespace,
 		secrets:    map[client.ObjectKey]*corev1.Secret{},
 		configMaps: map[client.ObjectKey]*corev1.ConfigMap{},
-		errs:       map[string]map[client.ObjectKey]error{},
-		versions:   map[string]map[client.ObjectKey]string{},
+		errs:       map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]error{},
+		versions:   map[resourcesv1alpha1.ProviderConfigObservedRefKind]map[client.ObjectKey]string{},
 	}
 
 	// Read every reference up front, so the observed versions are complete
