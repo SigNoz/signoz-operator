@@ -31,8 +31,8 @@ type engine struct {
 	operatorNamespace string
 }
 
-// New builds the engine for one kind from its adapter. operatorNamespace is
-// where a ClusterProviderConfig's Secret and ConfigMap references resolve.
+// operatorNamespace is where a ClusterProviderConfig's Secret and ConfigMap
+// references resolve.
 func NewCommonReconciler(c client.Client, resolver providerconfig.Resolver, adapter resources.Adapter, interval, retryInterval, timeout time.Duration, operatorNamespace string) resources.Reconciler {
 	return &engine{
 		client:            c,
@@ -45,7 +45,6 @@ func NewCommonReconciler(c client.Client, resolver providerconfig.Resolver, adap
 	}
 }
 
-// Reconcile drives one object towards its desired state in SigNoz.
 func (e *engine) Reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
 	if timeout := e.timeout(obj); timeout > 0 {
 		var cancel context.CancelFunc
@@ -69,8 +68,8 @@ func (e *engine) Reconcile(ctx context.Context, obj resources.Object) (ctrl.Resu
 	return result, err
 }
 
-// reconcile is the create/update path. It sets conditions on the live status
-// and returns the requeue; the caller commits the status once.
+// reconcile sets conditions on the live status and returns the requeue; the
+// caller commits the status once.
 func (e *engine) reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
 	k8sObject := obj.K8sObject()
 
@@ -131,13 +130,10 @@ func (e *engine) reconcile(ctx context.Context, obj resources.Object) (ctrl.Resu
 	return result, err
 }
 
-// establish resolves the "does this object exist yet" question of
-// docs/idempotency.md in one Find-first branch: a single match is adopted —
-// whether it is the operator resolving its own unconfirmed POST or first
-// contact with an object built some other way, the CR names the identity and
-// owns it. A signoz-resource-id annotation pins the adoption to one id among
-// the identity's matches; it selects, never overrides — an id outside the
-// matches is refused rather than adopted under the wrong identity.
+// establish resolves an object with no recorded id: one identity match is
+// adopted, none creates, more than one is ambiguous. A pinned
+// signoz-resource-id selects among the matches, never overrides them. See
+// docs/idempotency.md.
 func (e *engine) establish(
 	ctx context.Context,
 	obj resources.Object,
@@ -232,9 +228,6 @@ func (e *engine) create(
 	return ctrl.Result{RequeueAfter: e.interval(obj)}, nil
 }
 
-// afterFailedCreate classifies a create failure: a 409 means the object already
-// exists and is adopted; another terminal status means nothing was created and
-// the record is cleared; an unknown outcome keeps the record for a later Find.
 func (e *engine) afterFailedCreate(
 	ctx context.Context,
 	obj resources.Object,
@@ -274,8 +267,8 @@ func (e *engine) afterFailedCreate(
 	}
 }
 
-// resolveConflict handles a 409 on create: the object exists, so find and adopt
-// it. Finding none is reported rather than retried; finding many is ambiguous.
+// resolveConflict resolves a 409 on create. A conflict with no matching object
+// is reported rather than retried.
 func (e *engine) resolveConflict(
 	ctx context.Context,
 	obj resources.Object,
@@ -312,9 +305,8 @@ func (e *engine) resolveConflict(
 	}
 }
 
-// adopt records the discovered metadata, clears the create-attempt record, and
-// brings the remote into sync — the object may not be one the operator wrote,
-// so it is compared and updated rather than assumed to match.
+// adopt takes ownership of an existing object: it may not be one the operator
+// wrote, so it is compared and updated rather than assumed to match.
 func (e *engine) adopt(
 	ctx context.Context,
 	obj resources.Object,
@@ -333,10 +325,6 @@ func (e *engine) adopt(
 	return e.reconcileExisting(ctx, obj, c, hash)
 }
 
-// reconcileExisting drives an object the operator already knows the identity
-// of: fetch the remote, and update it if it has drifted from desired. A remote
-// that has vanished drops the recorded metadata so the next pass re-establishes
-// it.
 func (e *engine) reconcileExisting(
 	ctx context.Context,
 	obj resources.Object,
@@ -363,12 +351,10 @@ func (e *engine) reconcileExisting(
 		return ctrl.Result{RequeueAfter: e.retryInterval(obj)}, nil
 	}
 
-	// Desired state has changed since our last write when the recorded hash
-	// differs from the current one. An empty recorded hash means there is no prior
-	// write to compare against — a first observation or a fresh adoption — so the
-	// adapter's own compare is trusted alone. This lets a kind whose remote state
-	// cannot be compared field-for-field (a redacted secret, a reformatted
-	// timestamp) still detect a spec edit, per docs/core-status.md.
+	// An empty recorded hash has no prior write to compare against — a first
+	// observation or a fresh adoption — so the adapter's compare is trusted alone.
+	// It lets a kind whose remote state cannot be compared field-for-field still
+	// detect a spec edit, per docs/core-status.md.
 	desiredChanged := status.ObservedHash != "" && status.ObservedHash != hash
 
 	if upToDate && !desiredChanged {
@@ -388,9 +374,8 @@ func (e *engine) reconcileExisting(
 	return ctrl.Result{RequeueAfter: e.interval(obj)}, nil
 }
 
-// finalize applies the reclaim policy when the custom resource is deleted, then
-// removes the finalizer. A Delete policy that cannot reach SigNoz requeues
-// rather than orphaning the remote object silently.
+// finalize applies the reclaim policy. A Delete policy that cannot reach SigNoz
+// requeues rather than orphaning the remote object silently.
 func (e *engine) finalize(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
@@ -466,11 +451,9 @@ func (e *engine) removeFinalizer(ctx context.Context, obj resources.Object) (ctr
 	return ctrl.Result{}, nil
 }
 
-// connect resolves the provider config a resource names into a SigNoz client.
-// The namespace rule — a ProviderConfig's references resolve in the resource's
-// own namespace, a ClusterProviderConfig's in the operator's — lives in the
-// resolver. Every failure is recoverable: a missing or broken config waits on
-// the watches and the retry interval, never settles the resource.
+// connect turns the resource's provider config ref into a client. Every
+// failure is recoverable: a missing or broken config never settles the
+// resource.
 func (e *engine) connect(ctx context.Context, obj resources.Object, spec *resourcesv1alpha1.CoreSpec) (clients.SigNoz, error) {
 	resolved, err := e.resolver.ResolveRef(ctx, spec.ProviderConfigRef, obj.K8sObject().GetNamespace(), e.operatorNamespace)
 	if err != nil {
@@ -523,9 +506,8 @@ func (e *engine) commit(ctx context.Context, obj resources.Object, before *resou
 	return nil
 }
 
-// recordCreateAttempt patches the create-attempt annotation onto the object
-// before a POST. A metadata patch re-reads the object, so a caller must not
-// hold unsaved status changes across it.
+// A metadata patch re-reads the object, so a caller must not hold unsaved
+// status changes across it.
 func (e *engine) recordCreateAttempt(ctx context.Context, obj resources.Object) error {
 	k8sObject := obj.K8sObject()
 	patch := client.MergeFrom(k8sObject.DeepCopyObject().(client.Object))
@@ -591,8 +573,6 @@ func (e *engine) retryInterval(obj resources.Object) time.Duration {
 	return e.Interval
 }
 
-// currentID reads the id out of the recorded resource metadata, empty when no
-// create or lookup has confirmed one yet.
 func currentID(status *resourcesv1alpha1.CoreStatus) string {
 	if status.SigNozResource != nil && status.SigNozResource.ID != nil {
 		return *status.SigNozResource.ID

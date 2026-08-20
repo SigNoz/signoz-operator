@@ -8,7 +8,6 @@ var (
 	AdapterOperationDelete  = AdapterOperation{s: "delete"}
 )
 
-// AdapterOperation names each operation supported by the adapter.
 type AdapterOperation struct{ s string }
 
 func (a AdapterOperation) String() string {

@@ -16,8 +16,8 @@ func (o ReconcilerOutcome) String() string {
 }
 
 var (
-	AdapterOutcomeTerminal    = AdapterOutcome{s: "terminal"}    // the outcome is terminal, nothing else can be done
-	AdapterOutcomeRecoverable = AdapterOutcome{s: "recoverable"} // the outcome can be retried
+	AdapterOutcomeTerminal    = AdapterOutcome{s: "terminal"}    // a retry will not fix it
+	AdapterOutcomeRecoverable = AdapterOutcome{s: "recoverable"} // a retry may fix it
 )
 
 // AdapterOutcome is how an adapter classifies a failed HTTP outcome.

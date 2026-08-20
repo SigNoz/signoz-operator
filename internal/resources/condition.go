@@ -7,11 +7,9 @@ import (
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 )
 
-// Condition types are fixed and shared across every mirrored kind, so
-// `kubectl wait --for=condition=Ready` and generic tooling work uniformly.
-// Per-kind and per-case detail lives in the reason and message, never the type.
-// The vocabulary is private: callers hand SetConditions a ReconcilerOutcome and
-// this package owns what appears on status. See docs/core-status.md.
+// Condition types are fixed and shared across every mirrored kind; per-kind
+// detail lives in the reason and message, never the type. See
+// docs/core-status.md.
 var (
 	// conditionReady is the single condition a user or tool should wait on. It is
 	// derived, rolling up the others by precedence.
@@ -32,22 +30,17 @@ var (
 	conditionSuspended = condition{s: "Suspended", isAlwaysPresent: false}
 )
 
-// condition is one of the fixed condition types above. isAlwaysPresent
-// distinguishes the two rendering kinds: an always-present condition is
-// three-valued and never removed, while a marker is present (True) only while
-// it applies and removed otherwise. Markers are mutually exclusive by
-// construction — they render a single-valued ReconcilerOutcome, so two can
-// never hold at once.
+// condition is one of the fixed types above. An always-present condition is
+// three-valued and never removed; a marker is present (True) only while it
+// applies and removed otherwise.
 type condition struct {
 	s               string
 	isAlwaysPresent bool
 }
 
 // SetConditions renders one reconciler outcome onto status: Synced is always
-// present and three-valued; exactly the marker matching the outcome — among
-// Suspended, Terminal and Recoverable — is present (True) and the others are
-// removed; Ready is derived so a reader waits on one condition. See
-// docs/core-status.md.
+// present, exactly the marker matching the outcome is present, and Ready is
+// derived so a reader waits on one condition.
 func SetConditions(status *v1alpha1.CoreStatus, generation int64, outcome ReconcilerOutcome, reason Reason, message string) {
 	// Stamp here rather than earlier in the reconcile: a metadata patch re-reads
 	// the object and drops status set before it, so observedGeneration must be
@@ -78,9 +71,8 @@ func SetConditions(status *v1alpha1.CoreStatus, generation int64, outcome Reconc
 	apply(status, generation, conditionReady, ready, reason, message)
 }
 
-// apply writes one condition according to its rendering kind: an always-present
-// condition is written whatever its status, while a marker that does not hold
-// is removed rather than written False — presence is its signal.
+// apply writes one condition; a marker that does not hold is removed rather
+// than written False — presence is its signal.
 func apply(status *v1alpha1.CoreStatus, generation int64, c condition, s metav1.ConditionStatus, reason Reason, message string) {
 	if !c.isAlwaysPresent && s != metav1.ConditionTrue {
 		meta.RemoveStatusCondition(&status.Conditions, c.s)

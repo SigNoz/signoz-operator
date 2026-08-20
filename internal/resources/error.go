@@ -2,12 +2,10 @@ package resources
 
 import "net/http"
 
-// AdapterError is a classified HTTP outcome. Its Outcome says whether a retry
-// can fix the failure; how an adapter maps statuses to outcomes is its own
-// business, with one rule from docs/core-status.md: a status the adapter is
-// not sure about must stay Recoverable, so retrying never stops. Its Message
-// may quote what the server returned, never what the operator sent, so a
-// credential cannot leak into a condition.
+// AdapterError is a classified HTTP outcome. A status the adapter is not sure
+// about must stay Recoverable (docs/core-status.md). Message may quote what
+// the server returned, never what the operator sent, so a credential cannot
+// leak into a condition.
 type AdapterError struct {
 	Operation      AdapterOperation
 	HTTPStatusCode int
