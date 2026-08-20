@@ -22,26 +22,26 @@ import (
 )
 
 type engine struct {
-	client            client.Client
-	resolver          providerconfig.Resolver
-	adapter           resources.Adapter
-	Interval          time.Duration
-	RetryInterval     time.Duration
-	Timeout           time.Duration
-	operatorNamespace string
+	client               client.Client
+	resolver             providerconfig.Resolver
+	adapter              resources.Adapter
+	defaultInterval      time.Duration
+	defaultRetryInterval time.Duration
+	defaultTimeout       time.Duration
+	operatorNamespace    string
 }
 
 // operatorNamespace is where a ClusterProviderConfig's Secret and ConfigMap
 // references resolve.
 func NewCommonReconciler(c client.Client, resolver providerconfig.Resolver, adapter resources.Adapter, interval, retryInterval, timeout time.Duration, operatorNamespace string) resources.Reconciler {
 	return &engine{
-		client:            c,
-		resolver:          resolver,
-		adapter:           adapter,
-		Interval:          interval,
-		RetryInterval:     retryInterval,
-		Timeout:           timeout,
-		operatorNamespace: operatorNamespace,
+		client:               c,
+		resolver:             resolver,
+		adapter:              adapter,
+		defaultInterval:      interval,
+		defaultRetryInterval: retryInterval,
+		defaultTimeout:       timeout,
+		operatorNamespace:    operatorNamespace,
 	}
 }
 
@@ -544,7 +544,7 @@ func (e *engine) timeout(obj resources.Object) time.Duration {
 		return d.Duration
 	}
 
-	return e.Timeout
+	return e.defaultTimeout
 }
 
 func (e *engine) interval(obj resources.Object) time.Duration {
@@ -552,7 +552,7 @@ func (e *engine) interval(obj resources.Object) time.Duration {
 		return d.Duration
 	}
 
-	return e.Interval
+	return e.defaultInterval
 }
 
 func (e *engine) retryInterval(obj resources.Object) time.Duration {
@@ -566,11 +566,11 @@ func (e *engine) retryInterval(obj resources.Object) time.Duration {
 		return d.Duration
 	}
 
-	if e.RetryInterval > 0 {
-		return e.RetryInterval
+	if e.defaultRetryInterval > 0 {
+		return e.defaultRetryInterval
 	}
 
-	return e.Interval
+	return e.defaultInterval
 }
 
 func currentID(status *resourcesv1alpha1.CoreStatus) string {
