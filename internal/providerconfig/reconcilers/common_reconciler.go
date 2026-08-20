@@ -24,11 +24,9 @@ func NewCommonReconciler(c client.Client, resolver providerconfig.Resolver) *Com
 	return &CommonReconciler{client: c, resolver: resolver}
 }
 
-// Reconcile resolves one provider config and reports the outcome on its Ready
-// condition. It does not contact SigNoz.
-//
-// The resolved config is discarded. This reconcile reports that one could be
-// assembled; the credential in it must not reach a status, an event or a log line.
+// Reconcile resolves one provider config and reports the outcome on Ready,
+// without contacting SigNoz. The resolved config is discarded: the credential in
+// it must not reach a status, an event or a log line.
 func (r *CommonReconciler) Reconcile(
 	ctx context.Context,
 	obj client.Object,
@@ -54,8 +52,7 @@ func (r *CommonReconciler) Reconcile(
 		}
 	}
 
-	// Until resolution failures carry a typed outcome again, every failure is
-	// returned for retry: backoff bounds retrying a permanent failure, while
-	// waiting on a watch could strand a transient one.
+	// Every failure retries: backoff bounds a permanent one, while waiting on a
+	// watch could strand a transient one.
 	return ctrl.Result{}, resolveErr
 }

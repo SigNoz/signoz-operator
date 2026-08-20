@@ -10,8 +10,7 @@ import (
 )
 
 // requestsMatching lists the objects newList holds under opts and maps each to
-// a reconcile request. On a failed list it enqueues nothing; the steady-state
-// interval catches what an event missed.
+// a reconcile request. A failed list enqueues nothing.
 func requestsMatching(ctx context.Context, c client.Client, newList func() client.ObjectList, opts ...client.ListOption) []reconcile.Request {
 	list := newList()
 

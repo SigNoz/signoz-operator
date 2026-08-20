@@ -1,12 +1,10 @@
 package providerconfig
 
-// Reasons reported on the Ready condition. Neither a reason nor the message built
-// alongside it carries a resolved value, so both are safe to copy into status.
+// Reasons reported on the Ready condition; none carries a resolved value.
 var (
 	ReasonResolved = Reason{s: "Resolved"}
 
-	// ReasonSpecInvalid is a spec the schema should have rejected — an auth block
-	// with no method set, a valueFrom with no source.
+	// A spec the schema should have rejected.
 	ReasonSpecInvalid = Reason{s: "SpecInvalid"}
 
 	ReasonEndpointInvalid   = Reason{s: "EndpointInvalid"}
@@ -16,43 +14,34 @@ var (
 	ReasonValueEmpty        = Reason{s: "ValueEmpty"}
 	ReasonCABundleInvalid   = Reason{s: "CABundleInvalid"}
 
-	// ReasonReferenceReadFailed is a read that failed for a reason other than the
-	// object not existing. The operator retries this one itself.
+	// A read that failed other than by the object not existing.
 	ReasonReferenceReadFailed = Reason{s: "ReferenceReadFailed"}
 )
 
-// Reason is one of the fixed reasons above; the unexported field keeps the
-// vocabulary closed.
+// Reason is one of the fixed reasons above, closed by its unexported field.
 type Reason struct{ s string }
 
 func (r Reason) String() string {
 	return r.s
 }
 
-// The resolve outcomes — how a resolution failure gets back on its feet.
-// WaitForWatch means the fix is an edit to the spec or to a referenced object,
-// and the watch on it brings the reconcile back; Retry means the operator must
-// come back on its own. The reconciler retries anything that is not explicitly
-// WaitForWatch — the zero value included — because retrying a permanent failure
-// is bounded by backoff, while waiting on a transient one can strand the object
-// until resync.
+// How a resolution failure gets back on its feet: WaitForWatch, an edit the
+// operator watches brings the reconcile back; Retry, the operator comes back on
+// its own. Anything not explicitly WaitForWatch — the zero value included — retries.
 var (
 	ResolveOutcomeWaitForWatch = ResolveOutcome{s: "wait-for-watch"}
 	ResolveOutcomeRetry        = ResolveOutcome{s: "retry"}
 )
 
-// ResolveOutcome is one of the outcomes above; the unexported field keeps the
-// vocabulary closed.
+// ResolveOutcome is one of the outcomes above, closed by its unexported field.
 type ResolveOutcome struct{ s string }
 
 func (o ResolveOutcome) String() string {
 	return o.s
 }
 
-// Error is a resolution failure carrying the reason to report on Ready and the
-// outcome that decides the requeue. Its message names the field, object and key
-// at fault and never a resolved value, because a condition message is copied
-// wherever conditions are.
+// Error is a resolution failure carrying the Ready reason and the requeue outcome.
+// Message names the field, object and key at fault, never a resolved value.
 type Error struct {
 	Reason  Reason
 	Message string

@@ -10,9 +10,8 @@ import (
 )
 
 // Reconciler resolves one provider config and reports the outcome on its Ready
-// condition. It is the whole of both provider-config controllers' reconcile: the
-// two kinds share one spec and one status, and differ only in refNamespace, the
-// namespace their references resolve in.
+// condition — the whole of both controllers' reconcile, which differ only in
+// refNamespace, where references resolve.
 type Reconciler interface {
 	Reconcile(ctx context.Context, obj client.Object, spec *resourcesv1alpha1.ProviderConfigSpec, status *resourcesv1alpha1.ProviderConfigStatus, refNamespace string) (ctrl.Result, error)
 }

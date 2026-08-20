@@ -18,17 +18,14 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
-// ClusterProviderConfigReconciler reconciles a ClusterProviderConfig object.
 type ClusterProviderConfigReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
 	CommonReconciler providerconfig.Reconciler
 
-	// Namespace is the operator's own namespace. A ClusterProviderConfig has no
-	// namespace of its own, so this is where its name-only Secret and ConfigMap
-	// references resolve: the shared credential is one a cluster administrator
-	// places beside the operator.
+	// Namespace is the operator's own namespace, where a ClusterProviderConfig's
+	// name-only references resolve.
 	Namespace string
 }
 
@@ -37,10 +34,9 @@ type ClusterProviderConfigReconciler struct {
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
-// Reconcile reports on the Ready condition whether the endpoint and credential this
-// ClusterProviderConfig names resolved. References resolve in the operator's
-// namespace, so the credential a cluster-wide backend writes with is one only a
-// cluster administrator can place.
+// Reconcile reports on the Ready condition whether the endpoint and credential
+// this ClusterProviderConfig names resolved, reading references in the
+// operator's namespace.
 func (r *ClusterProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ClusterProviderConfig{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
@@ -55,7 +51,6 @@ func (r *ClusterProviderConfigReconciler) Reconcile(ctx context.Context, req ctr
 	return r.CommonReconciler.Reconcile(ctx, config, &config.Spec, &config.Status, r.Namespace)
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *ClusterProviderConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Namespace == "" {
 		return errors.New("operator namespace is required to resolve ClusterProviderConfig references")
@@ -74,8 +69,7 @@ func (r *ClusterProviderConfigReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	// A Secret or ConfigMap event requeues the ClusterProviderConfigs that read
-	// it. Only the operator's own namespace matters: that is the one place a
-	// cluster-scoped config's references resolve.
+	// it; only the operator's own namespace matters.
 	watchReferences := func(indexField string) handler.EventHandler {
 		return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 			if obj.GetNamespace() != r.Namespace {

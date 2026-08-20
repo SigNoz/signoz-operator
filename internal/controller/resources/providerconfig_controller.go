@@ -17,14 +17,12 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
-// The field indexes under which both provider-config kinds list the objects they
-// read, keyed by plain name, one index per referenced kind.
+// Field indexes both provider-config kinds register, keyed by referenced object name.
 const (
 	secretRefsIndex    = ".spec.secretRefs"
 	configMapRefsIndex = ".spec.configMapRefs"
 )
 
-// ProviderConfigReconciler reconciles a ProviderConfig object.
 type ProviderConfigReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -37,9 +35,8 @@ type ProviderConfigReconciler struct {
 // +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
-// Reconcile reports on the Ready condition whether the endpoint and credential this
-// ProviderConfig names resolved. References resolve in the ProviderConfig's own
-// namespace, so RBAC on the Secret there decides who writes through this backend.
+// Reconcile reports on the Ready condition whether the endpoint and credential
+// this ProviderConfig names resolved, reading references in its own namespace.
 func (r *ProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ProviderConfig{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
@@ -54,7 +51,6 @@ func (r *ProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return r.CommonReconciler.Reconcile(ctx, config, &config.Spec, &config.Status, config.Namespace)
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *ProviderConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &resourcesv1alpha1.ProviderConfig{}, secretRefsIndex, func(o client.Object) []string {
 		return slices.Collect(maps.Keys(o.(*resourcesv1alpha1.ProviderConfig).Spec.SecretNames()))
@@ -69,8 +65,7 @@ func (r *ProviderConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	// A Secret or ConfigMap event requeues the ProviderConfigs in its namespace
-	// which read it, so a rotated credential is re-resolved and the resources
-	// naming the config see its status move.
+	// that read it, so a rotated credential is re-resolved.
 	watchReferences := func(indexField string) handler.EventHandler {
 		return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 			return requestsMatching(ctx, r.Client,
