@@ -179,7 +179,7 @@ A body sent as `jsonSpec` is sent byte for byte. A JSON dump is the document a u
 
 ### What goes inside
 
-The typed form mirrors the request body SigNoz accepts, field for field, so a dashboard's `objectTemplate.spec` is what the SigNoz editor's copy and download controls produce. Server-assigned identity is not part of it — that is `status.signozResourceMetadata`, per [core-status.md](core-status.md).
+The typed form mirrors the request body SigNoz accepts, field for field, so a dashboard's `objectTemplate.spec` is what the SigNoz editor's copy and download controls produce. Server-assigned identity is not part of it — that is `status.signozResource`, per [core-status.md](core-status.md).
 
 The body's schema version is the one field the two forms treat differently. A typed struct models exactly one version, so the typed form omits it and the operator sends the version its struct matches. A `jsonSpec` body is sent unaltered, so it must carry its own — the operator does not reach into it, and a body that declares no version, or one SigNoz does not accept, is rejected by SigNoz rather than by us.
 
