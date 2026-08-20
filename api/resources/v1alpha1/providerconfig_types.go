@@ -1,15 +1,28 @@
 package v1alpha1
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// ProviderConfigReference names the backend a resource writes through. Kind
+// The kinds a provider config references, derived the way a scheme derives kind
+// names: from the Go type name.
+var (
+	ProviderConfigObservedRefKindSecret    = ProviderConfigObservedRefKind(reflect.TypeFor[corev1.Secret]().Name())
+	ProviderConfigObservedRefKindConfigMap = ProviderConfigObservedRefKind(reflect.TypeFor[corev1.ConfigMap]().Name())
+)
+
+// ProviderConfigObservedRefKind keys status.observedRefVersions. A named string,
+// not a closed struct: an API map key must serialize as a string.
+type ProviderConfigObservedRefKind string
+
+// ProviderConfigRef names the backend a resource writes through. Kind
 // ProviderConfig resolves in the resource's own namespace; ClusterProviderConfig
 // resolves cluster-wide. There is no namespace field.
-type ProviderConfigReference struct {
+type ProviderConfigRef struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -97,12 +110,21 @@ type ProviderConfigSpec struct {
 
 // ProviderConfigStatus is the shared observed state of ProviderConfig and ClusterProviderConfig.
 type ProviderConfigStatus struct {
-	// A Ready condition reports that the endpoint and credential resolved. It
-	// does not report that SigNoz answered.
+	// A Ready condition reports that the endpoint and credential resolved. It does not report that SigNoz answered.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the metadata.generation the conditions were set from.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// ObservedRefVersions records the resourceVersion observed for each Secret
+	// and ConfigMap this object reads, keyed by kind, then by
+	// "<namespace>/<name>". It holds no credential material.
+	// +optional
+	ObservedRefVersions map[ProviderConfigObservedRefKind]map[string]string `json:"observedRefVersions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -133,6 +155,44 @@ type ProviderConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []ProviderConfig `json:"items"`
+}
+
+func (s *ProviderConfigSpec) SecretNames() map[string]struct{} {
+	names := make(map[string]struct{}, 3)
+
+	for _, src := range s.ValueSources() {
+		if src != nil && src.SecretKeyRef != nil && src.SecretKeyRef.Name != "" {
+			names[src.SecretKeyRef.Name] = struct{}{}
+		}
+	}
+
+	return names
+}
+
+func (s *ProviderConfigSpec) ConfigMapNames() map[string]struct{} {
+	names := make(map[string]struct{}, 2)
+
+	for _, src := range s.ValueSources() {
+		if src != nil && src.ConfigMapKeyRef != nil && src.ConfigMapKeyRef.Name != "" {
+			names[src.ConfigMapKeyRef.Name] = struct{}{}
+		}
+	}
+
+	return names
+}
+
+func (s *ProviderConfigSpec) ValueSources() []*ValueSource {
+	sources := []*ValueSource{s.Endpoint.ValueFrom}
+
+	if s.Auth.Header != nil {
+		sources = append(sources, s.Auth.Header.ValueFrom)
+	}
+
+	if s.TLS != nil && s.TLS.CASecretRef != nil {
+		sources = append(sources, &ValueSource{SecretKeyRef: s.TLS.CASecretRef})
+	}
+
+	return sources
 }
 
 func init() {

@@ -259,10 +259,10 @@ type ProviderConfigStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// ObservedRefVersions records the resourceVersion observed for each Secret
-	// and ConfigMap this object reads, keyed by "<kind>/<name>". It holds no
-	// credential material.
+	// and ConfigMap this object reads, keyed by kind, then by
+	// "<namespace>/<name>". It holds no credential material.
 	// +optional
-	ObservedRefVersions map[string]string `json:"observedRefVersions,omitempty"`
+	ObservedRefVersions map[string]map[string]string `json:"observedRefVersions,omitempty"`
 }
 ```
 

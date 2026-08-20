@@ -63,12 +63,17 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-          # The env var below is substituted by the kubelet from the downward API.
+          # The env vars below are substituted by the kubelet from the downward API.
           - --watch-namespaces=$(WATCH_NAMESPACE)
+          - --operator-namespace=$(OPERATOR_NAMESPACE)
         image: controller:latest
         name: manager
         env:
         - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
