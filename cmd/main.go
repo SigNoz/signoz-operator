@@ -10,8 +10,6 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/SigNoz/signoz-operator/internal/build"
-	internalconfig "github.com/SigNoz/signoz-operator/internal/config"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -20,10 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/SigNoz/signoz-operator/internal/build"
+	internalconfig "github.com/SigNoz/signoz-operator/internal/config"
+
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	resourcescontroller "github.com/SigNoz/signoz-operator/internal/controller/resources"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig/reconcilers"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig/resolvers"
+	"github.com/SigNoz/signoz-operator/internal/resources/adapters"
+	resourcesreconcilers "github.com/SigNoz/signoz-operator/internal/resources/reconcilers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -86,7 +89,8 @@ func run(cfg *config) error {
 		return fmt.Errorf("could not create manager: %w", err)
 	}
 
-	commonReconciler := reconcilers.NewCommonReconciler(mgr.GetClient(), resolvers.NewCachedResolver(mgr.GetClient()))
+	resolver := resolvers.NewCachedResolver(mgr.GetClient())
+	commonReconciler := reconcilers.NewCommonReconciler(mgr.GetClient(), resolver)
 
 	if err := (&resourcescontroller.ProviderConfigReconciler{
 		Client:           mgr.GetClient(),
@@ -103,6 +107,70 @@ func run(cfg *config) error {
 		Namespace:        cfg.OperatorNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("could not create controller resources-clusterproviderconfig: %w", err)
+	}
+
+	if err := (&resourcescontroller.UserReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewUserAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-user: %w", err)
+	}
+
+	if err := (&resourcescontroller.AuthDomainReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewAuthDomainAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-authdomain: %w", err)
+	}
+
+	if err := (&resourcescontroller.DashboardReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewDashboardAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-dashboard: %w", err)
+	}
+
+	if err := (&resourcescontroller.SavedViewReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewSavedViewAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-savedview: %w", err)
 	}
 
 	// +kubebuilder:scaffold:builder

@@ -1,0 +1,61 @@
+apiVersion: resources.signoz.io/v1alpha1
+kind: SavedView
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: savedview-sample
+spec:
+  providerConfigRef:
+    name: providerconfig-sample
+  # Typed form: the API server validates these fields at apply.
+  objectTemplate:
+    spec:
+      name: error-logs
+      schemaVersion: v2
+      source: logs
+      spec:
+        displayName: Error logs
+        panelType: list
+        requestType: raw
+        queries:
+          - type: builder_query
+            spec:
+              name: A
+              signal: logs
+              filter:
+                expression: severity_text = 'ERROR'
+---
+apiVersion: resources.signoz.io/v1alpha1
+kind: SavedView
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: savedview-sample-json
+spec:
+  providerConfigRef:
+    name: providerconfig-sample
+  # jsonSpec form: the SigNoz request body, sent verbatim.
+  objectTemplate:
+    jsonSpec: |-
+      {
+        "name": "slow-traces",
+        "schemaVersion": "v2",
+        "source": "traces",
+        "spec": {
+          "displayName": "Slow traces",
+          "panelType": "trace",
+          "requestType": "trace",
+          "queries": [
+            {
+              "type": "builder_query",
+              "spec": {
+                "name": "A",
+                "signal": "traces",
+                "filter": {"expression": "duration_nano > 1000000000"}
+              }
+            }
+          ]
+        }
+      }

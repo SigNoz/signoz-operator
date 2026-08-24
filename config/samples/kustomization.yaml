@@ -2,4 +2,8 @@
 resources:
 - resources_v1alpha1_providerconfig.yaml
 - resources_v1alpha1_clusterproviderconfig.yaml
+- resources_v1alpha1_user.yaml
+- resources_v1alpha1_authdomain.yaml
+- resources_v1alpha1_dashboard.yaml
+- resources_v1alpha1_savedview.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

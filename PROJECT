@@ -28,4 +28,40 @@ resources:
   kind: ClusterProviderConfig
   path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: User
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: AuthDomain
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: Dashboard
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: SavedView
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
 version: "3"

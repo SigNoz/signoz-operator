@@ -1,0 +1,53 @@
+apiVersion: resources.signoz.io/v1alpha1
+kind: Dashboard
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dashboard-sample
+spec:
+  providerConfigRef:
+    name: providerconfig-sample
+  # Typed form: the API server validates these fields at apply. Panels,
+  # layouts and variables carry the full query-builder schema; this sample
+  # stays minimal.
+  objectTemplate:
+    spec:
+      name: service-overview
+      schemaVersion: v2
+      tags:
+        - key: team
+          value: platform
+      spec:
+        display:
+          name: Service overview
+          description: Golden signals for the demo service
+        layouts: []
+        panels: {}
+        variables: []
+---
+apiVersion: resources.signoz.io/v1alpha1
+kind: Dashboard
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dashboard-sample-json
+spec:
+  providerConfigRef:
+    name: providerconfig-sample
+  # jsonSpec form: the SigNoz request body, sent verbatim. Use it to import a
+  # dashboard exported from the SigNoz UI unchanged.
+  objectTemplate:
+    jsonSpec: |-
+      {
+        "name": "service-overview-json",
+        "schemaVersion": "v2",
+        "tags": [],
+        "spec": {
+          "display": {"name": "Service overview (JSON)"},
+          "layouts": [],
+          "panels": {},
+          "variables": []
+        }
+      }

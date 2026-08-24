@@ -49,7 +49,11 @@ rules:
 - apiGroups:
   - resources.signoz.io
   resources:
+  - authdomains
+  - dashboards
   - providerconfigs
+  - savedviews
+  - users
   verbs:
   - create
   - delete
@@ -61,13 +65,21 @@ rules:
 - apiGroups:
   - resources.signoz.io
   resources:
+  - authdomains/finalizers
+  - dashboards/finalizers
   - providerconfigs/finalizers
+  - savedviews/finalizers
+  - users/finalizers
   verbs:
   - update
 - apiGroups:
   - resources.signoz.io
   resources:
+  - authdomains/status
+  - dashboards/status
   - providerconfigs/status
+  - savedviews/status
+  - users/status
   verbs:
   - get
   - patch
