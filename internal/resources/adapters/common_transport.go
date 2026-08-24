@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
@@ -40,7 +41,7 @@ func (*commonTransport) Create(ctx context.Context, c clients.SigNoz, obj resour
 	return resource, nil
 }
 
-func (*commonTransport) Read(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *v1alpha1.SigNozResource) (map[string]any, error) {
+func (*commonTransport) Read(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *v1alpha1.SigNozResource) (json.RawMessage, error) {
 	method, path := obj.ReadMethodAndPath(resourceMetadata)
 
 	status, result, err := c.Exchange(ctx, method, path, nil)

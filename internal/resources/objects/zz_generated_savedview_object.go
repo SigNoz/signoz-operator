@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/tidwall/gjson"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/internal/jsonbody"
 	"github.com/SigNoz/signoz-operator/internal/resources"
 )
 
@@ -39,7 +39,7 @@ func (s *SavedViewObject) GetCoreStatus() *v1alpha1.CoreStatus {
 }
 
 func (s *SavedViewObject) Body() (json.RawMessage, error) {
-	return renderTemplate(s.SavedView.Spec.ObjectTemplate.Spec, s.SavedView.Spec.ObjectTemplate.JSONSpec)
+	return jsonbody.Render(s.SavedView.Spec.ObjectTemplate.Spec, s.SavedView.Spec.ObjectTemplate.JSONSpec)
 }
 
 func (s *SavedViewObject) Identity() (string, error) {
@@ -49,12 +49,11 @@ func (s *SavedViewObject) Identity() (string, error) {
 	case template.Spec != nil:
 		return template.Spec.Name, nil
 	case template.JSONSpec != nil:
-		var body struct {
+		body, err := jsonbody.Extract[struct {
 			Name string `json:"name"`
-		}
-
-		if err := json.Unmarshal([]byte(*template.JSONSpec), &body); err != nil {
-			return "", fmt.Errorf("objectTemplate.jsonSpec: not valid JSON: %w", err)
+		}](*template.JSONSpec)
+		if err != nil {
+			return "", fmt.Errorf("objectTemplate.jsonSpec: %w", err)
 		}
 
 		return body.Name, nil
@@ -69,7 +68,7 @@ func (s *SavedViewObject) Hash() (string, error) {
 		return "", err
 	}
 
-	return canonicalHash(body)
+	return jsonbody.Hash(body)
 }
 
 func (s *SavedViewObject) UpdatableFields() []string {
@@ -80,15 +79,10 @@ func (s *SavedViewObject) ImmutableFields() []string {
 	return []string{"name"}
 }
 
-func (s *SavedViewObject) ToSigNozResource(response map[string]any) (*v1alpha1.SigNozResource, error) {
-	raw, err := json.Marshal(response)
+func (s *SavedViewObject) ToSigNozResource(response json.RawMessage) (*v1alpha1.SigNozResource, error) {
+	id, err := jsonbody.ExtractString(response, "data.id")
 	if err != nil {
 		return nil, err
-	}
-
-	id := gjson.GetBytes(raw, "data.id").String()
-	if id == "" {
-		return nil, errors.New("response carries no id")
 	}
 
 	return &v1alpha1.SigNozResource{ID: &id}, nil
@@ -100,62 +94,21 @@ func (s *SavedViewObject) ToUpdate() (json.RawMessage, error) {
 		return nil, err
 	}
 
-	payload := map[string]any{}
-
-	for _, field := range s.UpdatableFields() {
-		if value := gjson.GetBytes(body, field); value.Exists() {
-			payload[field] = value.Value()
-		}
-	}
-
-	if len(payload) == 0 {
-		return nil, nil
-	}
-
-	return json.Marshal(payload)
+	return jsonbody.ExtractFields(body, s.UpdatableFields())
 }
 
-func (s *SavedViewObject) Compare(response map[string]any) (resources.CompareResult, error) {
+func (s *SavedViewObject) Compare(response json.RawMessage) (resources.CompareResult, error) {
 	body, err := s.Body()
 	if err != nil {
 		return resources.CompareResult{}, err
 	}
 
-	remote, err := json.Marshal(response)
-	if err != nil {
-		return resources.CompareResult{}, err
-	}
+	diff := jsonbody.DiffWithFields(body, json.RawMessage(gjson.GetBytes(response, "data").Raw), s.UpdatableFields(), s.ImmutableFields())
 
-	var drift resources.CompareResult
-
-	for _, field := range s.UpdatableFields() {
-		desired := gjson.GetBytes(body, field)
-		if !desired.Exists() {
-			continue
-		}
-
-		if !reflect.DeepEqual(desired.Value(), gjson.GetBytes(remote, "data."+field).Value()) {
-			drift.UpdatableFields = append(drift.UpdatableFields, field)
-		}
-	}
-
-	for _, field := range s.ImmutableFields() {
-		desired := gjson.GetBytes(body, field)
-		if !desired.Exists() {
-			continue
-		}
-
-		value := gjson.GetBytes(remote, "data."+field)
-		if !value.Exists() {
-			continue
-		}
-
-		if !reflect.DeepEqual(desired.Value(), value.Value()) {
-			drift.ImmutableFields = append(drift.ImmutableFields, field)
-		}
-	}
-
-	return drift, nil
+	return resources.CompareResult{
+		UpdatableFields: diff.Updatable,
+		ImmutableFields: diff.Immutable,
+	}, nil
 }
 
 func (s *SavedViewObject) CreateMethodAndPath() (string, string) {
@@ -163,13 +116,19 @@ func (s *SavedViewObject) CreateMethodAndPath() (string, string) {
 }
 
 func (s *SavedViewObject) UpdateMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodPut, pathByID(savedViewCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodPut, savedViewCollectionPath + "/" + id
 }
 
 func (s *SavedViewObject) ReadMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodGet, pathByID(savedViewCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodGet, savedViewCollectionPath + "/" + id
 }
 
 func (s *SavedViewObject) DeleteMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodDelete, pathByID(savedViewCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodDelete, savedViewCollectionPath + "/" + id
 }

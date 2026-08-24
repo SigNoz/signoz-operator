@@ -96,7 +96,7 @@ func (_c *MockObject_Body_Call) RunAndReturn(run func() (json.RawMessage, error)
 }
 
 // Compare provides a mock function for the type MockObject
-func (_mock *MockObject) Compare(response map[string]any) (resources.CompareResult, error) {
+func (_mock *MockObject) Compare(response json.RawMessage) (resources.CompareResult, error) {
 	ret := _mock.Called(response)
 
 	if len(ret) == 0 {
@@ -105,15 +105,15 @@ func (_mock *MockObject) Compare(response map[string]any) (resources.CompareResu
 
 	var r0 resources.CompareResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(map[string]any) (resources.CompareResult, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(json.RawMessage) (resources.CompareResult, error)); ok {
 		return returnFunc(response)
 	}
-	if returnFunc, ok := ret.Get(0).(func(map[string]any) resources.CompareResult); ok {
+	if returnFunc, ok := ret.Get(0).(func(json.RawMessage) resources.CompareResult); ok {
 		r0 = returnFunc(response)
 	} else {
 		r0 = ret.Get(0).(resources.CompareResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(map[string]any) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(json.RawMessage) error); ok {
 		r1 = returnFunc(response)
 	} else {
 		r1 = ret.Error(1)
@@ -127,16 +127,16 @@ type MockObject_Compare_Call struct {
 }
 
 // Compare is a helper method to define mock.On call
-//   - response map[string]any
+//   - response json.RawMessage
 func (_e *MockObject_Expecter) Compare(response any) *MockObject_Compare_Call {
 	return &MockObject_Compare_Call{Call: _e.mock.On("Compare", response)}
 }
 
-func (_c *MockObject_Compare_Call) Run(run func(response map[string]any)) *MockObject_Compare_Call {
+func (_c *MockObject_Compare_Call) Run(run func(response json.RawMessage)) *MockObject_Compare_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 map[string]any
+		var arg0 json.RawMessage
 		if args[0] != nil {
-			arg0 = args[0].(map[string]any)
+			arg0 = args[0].(json.RawMessage)
 		}
 		run(
 			arg0,
@@ -150,7 +150,7 @@ func (_c *MockObject_Compare_Call) Return(compareResult resources.CompareResult,
 	return _c
 }
 
-func (_c *MockObject_Compare_Call) RunAndReturn(run func(response map[string]any) (resources.CompareResult, error)) *MockObject_Compare_Call {
+func (_c *MockObject_Compare_Call) RunAndReturn(run func(response json.RawMessage) (resources.CompareResult, error)) *MockObject_Compare_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -619,7 +619,7 @@ func (_c *MockObject_ReadMethodAndPath_Call) RunAndReturn(run func(sigNozResourc
 }
 
 // ToSigNozResource provides a mock function for the type MockObject
-func (_mock *MockObject) ToSigNozResource(response map[string]any) (*v1alpha1.SigNozResource, error) {
+func (_mock *MockObject) ToSigNozResource(response json.RawMessage) (*v1alpha1.SigNozResource, error) {
 	ret := _mock.Called(response)
 
 	if len(ret) == 0 {
@@ -628,17 +628,17 @@ func (_mock *MockObject) ToSigNozResource(response map[string]any) (*v1alpha1.Si
 
 	var r0 *v1alpha1.SigNozResource
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(map[string]any) (*v1alpha1.SigNozResource, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(json.RawMessage) (*v1alpha1.SigNozResource, error)); ok {
 		return returnFunc(response)
 	}
-	if returnFunc, ok := ret.Get(0).(func(map[string]any) *v1alpha1.SigNozResource); ok {
+	if returnFunc, ok := ret.Get(0).(func(json.RawMessage) *v1alpha1.SigNozResource); ok {
 		r0 = returnFunc(response)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.SigNozResource)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(map[string]any) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(json.RawMessage) error); ok {
 		r1 = returnFunc(response)
 	} else {
 		r1 = ret.Error(1)
@@ -652,16 +652,16 @@ type MockObject_ToSigNozResource_Call struct {
 }
 
 // ToSigNozResource is a helper method to define mock.On call
-//   - response map[string]any
+//   - response json.RawMessage
 func (_e *MockObject_Expecter) ToSigNozResource(response any) *MockObject_ToSigNozResource_Call {
 	return &MockObject_ToSigNozResource_Call{Call: _e.mock.On("ToSigNozResource", response)}
 }
 
-func (_c *MockObject_ToSigNozResource_Call) Run(run func(response map[string]any)) *MockObject_ToSigNozResource_Call {
+func (_c *MockObject_ToSigNozResource_Call) Run(run func(response json.RawMessage)) *MockObject_ToSigNozResource_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 map[string]any
+		var arg0 json.RawMessage
 		if args[0] != nil {
-			arg0 = args[0].(map[string]any)
+			arg0 = args[0].(json.RawMessage)
 		}
 		run(
 			arg0,
@@ -675,7 +675,7 @@ func (_c *MockObject_ToSigNozResource_Call) Return(sigNozResource *v1alpha1.SigN
 	return _c
 }
 
-func (_c *MockObject_ToSigNozResource_Call) RunAndReturn(run func(response map[string]any) (*v1alpha1.SigNozResource, error)) *MockObject_ToSigNozResource_Call {
+func (_c *MockObject_ToSigNozResource_Call) RunAndReturn(run func(response json.RawMessage) (*v1alpha1.SigNozResource, error)) *MockObject_ToSigNozResource_Call {
 	_c.Call.Return(run)
 	return _c
 }

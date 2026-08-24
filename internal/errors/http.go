@@ -1,11 +1,12 @@
 package errors
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 )
 
-func NewFromHTTPResponse(status int, body map[string]any) *Base {
+func NewFromHTTPResponse(status int, body json.RawMessage) *Base {
 	if status >= 200 && status < 300 {
 		return nil
 	}
@@ -13,8 +14,9 @@ func NewFromHTTPResponse(status int, body map[string]any) *Base {
 	detail := ""
 
 	if len(body) > 0 {
-		if raw, err := json.Marshal(body); err == nil {
-			detail = ": " + string(raw)
+		compact := &bytes.Buffer{}
+		if err := json.Compact(compact, body); err == nil {
+			detail = ": " + compact.String()
 		}
 	}
 

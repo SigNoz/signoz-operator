@@ -31,7 +31,7 @@ type Object interface {
 	Hash() (string, error)
 
 	// ToSigNozResource extracts the object's identity from a create response.
-	ToSigNozResource(response map[string]any) (*v1alpha1.SigNozResource, error)
+	ToSigNozResource(response json.RawMessage) (*v1alpha1.SigNozResource, error)
 
 	// ToUpdate returns the update payload from the spec.
 	ToUpdate() (json.RawMessage, error)
@@ -43,7 +43,7 @@ type Object interface {
 	ImmutableFields() []string
 
 	// Compare diffs a read response against desired state.
-	Compare(response map[string]any) (CompareResult, error)
+	Compare(response json.RawMessage) (CompareResult, error)
 
 	// CreateMethodAndPath returns the create HTTP method and path.
 	CreateMethodAndPath() (string, string)

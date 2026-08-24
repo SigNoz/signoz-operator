@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
@@ -18,7 +19,7 @@ type Transport interface {
 	Create(ctx context.Context, c clients.SigNoz, obj Object) (*v1alpha1.SigNozResource, error)
 
 	// Read fetches the object identified by resourceMetadata and returns the raw response.
-	Read(ctx context.Context, c clients.SigNoz, obj Object, resourceMetadata *v1alpha1.SigNozResource) (map[string]any, error)
+	Read(ctx context.Context, c clients.SigNoz, obj Object, resourceMetadata *v1alpha1.SigNozResource) (json.RawMessage, error)
 
 	// Update applies the object's update payload to the object identified by resourceMetadata
 	Update(ctx context.Context, c clients.SigNoz, obj Object, resourceMetadata *v1alpha1.SigNozResource) error

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
 	"github.com/SigNoz/signoz-operator/internal/errors"
@@ -44,21 +46,16 @@ func (*SavedViewAdapter) Find(ctx context.Context, c clients.SigNoz, obj resourc
 		return nil, err
 	}
 
-	data, ok := result["data"]
-	if !ok {
+	data := gjson.GetBytes(result, "data")
+	if !data.Exists() {
 		return nil, fmt.Errorf("find: response carries no data")
-	}
-
-	raw, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
 	}
 
 	var views []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := json.Unmarshal(raw, &views); err != nil {
+	if err := json.Unmarshal([]byte(data.Raw), &views); err != nil {
 		return nil, fmt.Errorf("find: could not parse saved view list: %w", err)
 	}
 
