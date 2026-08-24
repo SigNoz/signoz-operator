@@ -42,6 +42,8 @@ var (
 
 	// ReasonSuspended is reconciliation paused by spec.suspend.
 	ReasonSuspended = Reason{s: "Suspended"}
+
+	ReasonCompareFailed = Reason{s: "CompareFailed"}
 )
 
 // Reasons are the machine-readable causes reported on conditions, shared across every mirrored kind.

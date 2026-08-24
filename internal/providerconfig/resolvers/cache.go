@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/internal/errors"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
@@ -58,12 +59,12 @@ func (c *cache) secret(ctx context.Context, objectKey client.ObjectKey) (*corev1
 
 	secret := &corev1.Secret{}
 	if err := c.reader.Get(ctx, objectKey, secret); err != nil {
-		reason, message := providerconfig.ReasonReferenceReadFailed, fmt.Sprintf("could not read Secret %q in namespace %q: %s", objectKey.Name, objectKey.Namespace, err)
+		resolveErr := errors.Newf(errors.ReasonInternal, "could not read Secret %q in namespace %q: %s", objectKey.Name, objectKey.Namespace, err).WithCode(providerconfig.CodeReferenceReadFailed)
 		if apierrors.IsNotFound(err) {
-			reason, message = providerconfig.ReasonSecretNotFound, fmt.Sprintf("Secret %q not found in namespace %q", objectKey.Name, objectKey.Namespace)
+			resolveErr = errors.Newf(errors.ReasonNotFound, "Secret %q not found in namespace %q", objectKey.Name, objectKey.Namespace).WithCode(providerconfig.CodeSecretNotFound)
 		}
 
-		return nil, c.fail(resourcesv1alpha1.ProviderConfigObservedRefKindSecret, objectKey, providerconfig.NewResolverError(reason, message, err))
+		return nil, c.fail(resourcesv1alpha1.ProviderConfigObservedRefKindSecret, objectKey, resolveErr)
 	}
 
 	c.secrets[objectKey] = secret
@@ -84,12 +85,12 @@ func (c *cache) configMap(ctx context.Context, objectKey client.ObjectKey) (*cor
 
 	configMap := &corev1.ConfigMap{}
 	if err := c.reader.Get(ctx, objectKey, configMap); err != nil {
-		reason, message := providerconfig.ReasonReferenceReadFailed, fmt.Sprintf("could not read ConfigMap %q in namespace %q: %s", objectKey.Name, objectKey.Namespace, err)
+		resolveErr := errors.Newf(errors.ReasonInternal, "could not read ConfigMap %q in namespace %q: %s", objectKey.Name, objectKey.Namespace, err).WithCode(providerconfig.CodeReferenceReadFailed)
 		if apierrors.IsNotFound(err) {
-			reason, message = providerconfig.ReasonConfigMapNotFound, fmt.Sprintf("ConfigMap %q not found in namespace %q", objectKey.Name, objectKey.Namespace)
+			resolveErr = errors.Newf(errors.ReasonNotFound, "ConfigMap %q not found in namespace %q", objectKey.Name, objectKey.Namespace).WithCode(providerconfig.CodeConfigMapNotFound)
 		}
 
-		return nil, c.fail(resourcesv1alpha1.ProviderConfigObservedRefKindConfigMap, objectKey, providerconfig.NewResolverError(reason, message, err))
+		return nil, c.fail(resourcesv1alpha1.ProviderConfigObservedRefKindConfigMap, objectKey, resolveErr)
 	}
 
 	c.configMaps[objectKey] = configMap
@@ -111,11 +112,11 @@ func (c *cache) endpoint(ctx context.Context, spec *resourcesv1alpha1.ProviderCo
 	endpoint, parseErr := url.Parse(raw)
 	switch {
 	case parseErr != nil:
-		return nil, providerconfig.NewResolverError(providerconfig.ReasonEndpointInvalid, path+": value is not a valid URL", parseErr)
+		return nil, errors.New(errors.ReasonInvalidInput, path+": value is not a valid URL").WithCode(providerconfig.CodeEndpointInvalid)
 	case endpoint.Scheme != "http" && endpoint.Scheme != "https":
-		return nil, providerconfig.NewResolverError(providerconfig.ReasonEndpointInvalid, path+": URL scheme must be http or https", nil)
+		return nil, errors.New(errors.ReasonInvalidInput, path+": URL scheme must be http or https").WithCode(providerconfig.CodeEndpointInvalid)
 	case endpoint.Host == "":
-		return nil, providerconfig.NewResolverError(providerconfig.ReasonEndpointInvalid, path+": URL has no host", nil)
+		return nil, errors.New(errors.ReasonInvalidInput, path+": URL has no host").WithCode(providerconfig.CodeEndpointInvalid)
 	}
 
 	return endpoint, nil
@@ -124,7 +125,7 @@ func (c *cache) endpoint(ctx context.Context, spec *resourcesv1alpha1.ProviderCo
 // authentication resolves the one method set into the header it sends.
 func (c *cache) authentication(ctx context.Context, auth *resourcesv1alpha1.Authentication) (providerconfig.ResolvedAuthentication, error) {
 	if auth.Header == nil {
-		return providerconfig.ResolvedAuthentication{}, providerconfig.NewResolverError(providerconfig.ReasonSpecInvalid, "spec.auth: no authentication method set", nil)
+		return providerconfig.ResolvedAuthentication{}, errors.New(errors.ReasonInvalidInput, "spec.auth: no authentication method set").WithCode(providerconfig.CodeSpecInvalid)
 	}
 
 	const path = "spec.auth.header"
@@ -137,7 +138,7 @@ func (c *cache) authentication(ctx context.Context, auth *resourcesv1alpha1.Auth
 	}
 
 	if value == "" {
-		return providerconfig.ResolvedAuthentication{}, providerconfig.NewResolverError(providerconfig.ReasonValueEmpty, path+": credential resolved to an empty value", nil)
+		return providerconfig.ResolvedAuthentication{}, errors.New(errors.ReasonInvalidInput, path+": credential resolved to an empty value").WithCode(providerconfig.CodeValueEmpty)
 	}
 
 	name := header.Name
@@ -172,12 +173,12 @@ func (c *cache) trust(ctx context.Context, config *resourcesv1alpha1.TLSConfig) 
 
 	bundle, ok := secret.Data[ref.Key]
 	if !ok {
-		return nil, providerconfig.NewResolverError(providerconfig.ReasonKeyNotFound, fmt.Sprintf("%s: Secret %q has no key %q", path, ref.Name, ref.Key), nil)
+		return nil, errors.Newf(errors.ReasonNotFound, "%s: Secret %q has no key %q", path, ref.Name, ref.Key).WithCode(providerconfig.CodeKeyNotFound)
 	}
 
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(bundle) {
-		return nil, providerconfig.NewResolverError(providerconfig.ReasonCABundleInvalid, fmt.Sprintf("%s: Secret %q key %q holds no PEM certificate", path, ref.Name, ref.Key), nil)
+		return nil, errors.Newf(errors.ReasonInvalidInput, "%s: Secret %q key %q holds no PEM certificate", path, ref.Name, ref.Key).WithCode(providerconfig.CodeCABundleInvalid)
 	}
 
 	resolved.CAPool = pool
@@ -196,7 +197,7 @@ func (c *cache) value(
 ) (string, error) {
 	if from == nil {
 		if inline == "" {
-			return "", providerconfig.NewResolverError(providerconfig.ReasonSpecInvalid, path+": set exactly one of value or valueFrom", nil)
+			return "", errors.New(errors.ReasonInvalidInput, path+": set exactly one of value or valueFrom").WithCode(providerconfig.CodeSpecInvalid)
 		}
 
 		return strings.TrimSpace(inline), nil
@@ -214,7 +215,7 @@ func (c *cache) value(
 
 		value, ok := secret.Data[ref.Key]
 		if !ok {
-			return "", providerconfig.NewResolverError(providerconfig.ReasonKeyNotFound, fmt.Sprintf("%s: Secret %q has no key %q", fieldPath, ref.Name, ref.Key), nil)
+			return "", errors.Newf(errors.ReasonNotFound, "%s: Secret %q has no key %q", fieldPath, ref.Name, ref.Key).WithCode(providerconfig.CodeKeyNotFound)
 		}
 
 		return strings.TrimSpace(string(value)), nil
@@ -230,12 +231,12 @@ func (c *cache) value(
 
 		value, ok := configMap.Data[ref.Key]
 		if !ok {
-			return "", providerconfig.NewResolverError(providerconfig.ReasonKeyNotFound, fmt.Sprintf("%s: ConfigMap %q has no key %q", fieldPath, ref.Name, ref.Key), nil)
+			return "", errors.Newf(errors.ReasonNotFound, "%s: ConfigMap %q has no key %q", fieldPath, ref.Name, ref.Key).WithCode(providerconfig.CodeKeyNotFound)
 		}
 
 		return strings.TrimSpace(value), nil
 
 	default:
-		return "", providerconfig.NewResolverError(providerconfig.ReasonSpecInvalid, path+".valueFrom: set exactly one of secretKeyRef or configMapKeyRef", nil)
+		return "", errors.New(errors.ReasonInvalidInput, path+".valueFrom: set exactly one of secretKeyRef or configMapKeyRef").WithCode(providerconfig.CodeSpecInvalid)
 	}
 }

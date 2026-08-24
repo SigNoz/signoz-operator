@@ -8,14 +8,12 @@ import (
 	"net/http"
 
 	"github.com/SigNoz/signoz-operator/internal/build"
+	"github.com/SigNoz/signoz-operator/internal/errors"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
 var userAgent = "signoz-operator/" + build.Version
 
-// SigNoz sends authenticated requests to a SigNoz backend. Request URLs are
-// relative — a path and optional query — resolved against the backend's
-// endpoint.
 type SigNoz interface {
 	// Do sends one request as-is and returns the raw response.
 	Do(context.Context, *http.Request) (*http.Response, error)
@@ -27,16 +25,11 @@ type SigNoz interface {
 	Exchange(ctx context.Context, method, path string, body []byte) (int, map[string]any, error)
 }
 
-// client holds credential material through its resolved provider config, so it
-// must not be logged.
 type client struct {
 	resolved *providerconfig.ResolvedProviderConfigSpec
 	http     *http.Client
 }
 
-// The HTTP client has no retry layer: a POST must never be retried
-// automatically (docs/idempotency.md), so the reconcile loop drives every
-// retry itself.
 func New(resolved *providerconfig.ResolvedProviderConfigSpec) SigNoz {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if tlsConfig := resolved.TLSClientConfig(); tlsConfig != nil {
@@ -70,7 +63,7 @@ func (c *client) Exchange(ctx context.Context, method, path string, body []byte)
 
 	req, err := http.NewRequestWithContext(ctx, method, path, reader)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errors.Wrap(err, errors.ReasonInvalidInput, "could not build the request")
 	}
 
 	if body != nil {
@@ -79,13 +72,13 @@ func (c *client) Exchange(ctx context.Context, method, path string, body []byte)
 
 	resp, err := c.Do(ctx, req)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errors.Wrap(err, errors.ReasonUnreachable, "could not reach SigNoz")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errors.Wrap(err, errors.ReasonUnreachable, "could not read the response body")
 	}
 
 	if len(data) == 0 {
@@ -102,8 +95,6 @@ func (c *client) Exchange(ctx context.Context, method, path string, body []byte)
 	return resp.StatusCode, result, nil
 }
 
-// snippet returns a short, single-line view of a non-JSON response body, so it
-// travels inside the wrapper object without bloating a condition message.
 func snippet(body []byte) string {
 	const max = 200
 

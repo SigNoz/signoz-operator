@@ -101,6 +101,19 @@ func GetIDFromSigNozResource(resourceMetadata *SigNozResource) (string, error) {
 	return *resourceMetadata.ID, nil
 }
 
+func GetIDsFromSigNozResources(resourceMetadatas []*SigNozResource) []string {
+	ids := make([]string, 0, len(resourceMetadatas))
+
+	for _, resourceMetadata := range resourceMetadatas {
+		id, err := GetIDFromSigNozResource(resourceMetadata)
+		if err == nil {
+			ids = append(ids, id)
+		}
+	}
+
+	return ids
+}
+
 // CoreStatus is the observed-state counterpart of CoreSpec, embedded inline by
 // every mirrored kind. See docs/core-status.md.
 type CoreStatus struct {

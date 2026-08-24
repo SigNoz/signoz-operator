@@ -7,12 +7,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type CompareResult struct {
+	UpdatableFields []string
+	ImmutableFields []string
+}
+
 // Object is the mirrored SigNoz object as a Kubernetes custom resource.
 type Object interface {
 	K8sObject() client.Object
 
-	// Identity returns the key that finds this object in SigNoz, derived purely
-	// from desired state so that it is the same on every form of the body.
+	// Identity returns the key that finds this object in SigNoz.
 	Identity() (string, error)
 
 	GetCoreSpec() *v1alpha1.CoreSpec
@@ -26,32 +30,30 @@ type Object interface {
 	// and moving identical content between the template forms, must not change it.
 	Hash() (string, error)
 
-	// ToSigNozResource extracts the object's identity from a create response, by
-	// the kind's response paths.
+	// ToSigNozResource extracts the object's identity from a create response.
 	ToSigNozResource(response map[string]any) (*v1alpha1.SigNozResource, error)
 
-	// ToUpdate returns the update payload: desired state projected onto the
-	// fields the update endpoint accepts, nil when it manages none of them.
+	// ToUpdate returns the update payload from the spec.
 	ToUpdate() (json.RawMessage, error)
 
-	// UpdatableFields returns the fields the update endpoint accepts, from the
-	// OpenAPI update request schema.
+	// UpdatableFields returns the fields that can be updated.
 	UpdatableFields() []string
 
-	// ImmutableFields returns the fields settable only at create: the create
-	// request schema minus the updatable fields.
+	// ImmutableFields returns the fields settable only at create.
 	ImmutableFields() []string
 
-	// Compare diffs a read response against desired state and classifies the
-	// drift. A field absent from the desired body is unmanaged, never "blank
-	// it"; an immutable field the response does not carry is not compared.
-	Compare(response map[string]any) (Drift, error)
-}
+	// Compare diffs a read response against desired state.
+	Compare(response map[string]any) (CompareResult, error)
 
-// Drift is Compare's verdict: the fields whose remote value differs from
-// desired, split by consequence — updatable drift is fixed by an update,
-// immutable drift never can be, the fields are settable only at create.
-type Drift struct {
-	UpdatableFields []string
-	ImmutableFields []string
+	// CreateMethodAndPath returns the create HTTP method and path.
+	CreateMethodAndPath() (string, string)
+
+	// UpdateMethodAndPath returns the update HTTP method and path.
+	UpdateMethodAndPath(*v1alpha1.SigNozResource) (string, string)
+
+	// ReadMethodAndPath returns the read HTTP method and path.
+	ReadMethodAndPath(*v1alpha1.SigNozResource) (string, string)
+
+	// DeleteMethodAndPath returns the delete HTTP method and path.
+	DeleteMethodAndPath(*v1alpha1.SigNozResource) (string, string)
 }
