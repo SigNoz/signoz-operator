@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1/v1alpha1test"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig/providerconfigtest"
 	"github.com/SigNoz/signoz-operator/internal/resources"
@@ -69,19 +69,22 @@ func TestTimeout(t *testing.T) {
 			reconciler.defaultTimeout = testCase.defaultTimeout
 
 			// The finalizer is already present so addFinalizer does not hit the client.
-			k8sObject := &metav1.PartialObjectMetadata{
+			// The object must exist in the client for the status update at the end of
+			// Reconcile to succeed.
+			k8sObject := &v1alpha1test.FakeObject{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test",
 					Namespace:  "default",
 					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 				},
+				Spec: resourcesv1alpha1.CoreSpec{Timeout: testCase.specTimeout},
 			}
+			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
-			status := &resourcesv1alpha1.CoreStatus{}
 			obj := resourcestest.NewMockObject(t)
 			obj.EXPECT().K8sObject().Return(k8sObject)
-			obj.EXPECT().GetCoreSpec().Return(&resourcesv1alpha1.CoreSpec{Timeout: testCase.specTimeout})
-			obj.EXPECT().GetCoreStatus().Return(status)
+			obj.EXPECT().GetCoreSpec().Return(&k8sObject.Spec)
+			obj.EXPECT().GetCoreStatus().Return(&k8sObject.Status)
 			obj.EXPECT().Identity().Return("identity", nil)
 			obj.EXPECT().Hash().Return("hash", nil)
 
@@ -108,14 +111,22 @@ func TestTimeout(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, reconciler.defaultRetryInterval, result.RequeueAfter)
 
-			recoverable := meta.FindStatusCondition(status.Conditions, resources.ConditionRecoverable.String())
+			// Assert on the status read back from the client, not the in-memory one,
+			// so a path that forgets to persist fails here.
+			fetched := &v1alpha1test.FakeObject{}
+			require.NoError(t, reconciler.client.Get(context.Background(), client.ObjectKeyFromObject(k8sObject), fetched))
+
+			recoverable := meta.FindStatusCondition(fetched.Status.Conditions, resources.ConditionRecoverable.String())
 			if assert.NotNil(t, recoverable) {
 				assert.Equal(t, metav1.ConditionTrue, recoverable.Status)
 				assert.Equal(t, resources.ReasonProviderConfigNotReady.String(), recoverable.Reason)
 				assert.Contains(t, recoverable.Message, testCase.expectedMessage)
 			}
-			assert.True(t, meta.IsStatusConditionPresentAndEqual(status.Conditions, resources.ConditionReady.String(), metav1.ConditionUnknown))  // Ready=Unknown
-			assert.True(t, meta.IsStatusConditionPresentAndEqual(status.Conditions, resources.ConditionSynced.String(), metav1.ConditionUnknown)) // Synced=Unknown
+			assert.True(t, meta.IsStatusConditionPresentAndEqual(fetched.Status.Conditions, resources.ConditionReady.String(), metav1.ConditionUnknown))  // Ready=Unknown
+			assert.True(t, meta.IsStatusConditionPresentAndEqual(fetched.Status.Conditions, resources.ConditionSynced.String(), metav1.ConditionUnknown)) // Synced=Unknown
+
+			// The status changed, so the pass must be stamped and persisted.
+			assert.False(t, fetched.Status.ReconciledAt.IsZero())
 
 			if testCase.expectedTimeout == 0 {
 				assert.False(t, hasDeadline)
@@ -138,19 +149,19 @@ func TestAddFinalizerAndSuspend(t *testing.T) {
 
 	// The object starts without the finalizer and must exist in the client for
 	// addFinalizer's Update to succeed.
-	k8sObject := &corev1.ConfigMap{
+	k8sObject := &v1alpha1test.FakeObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
+		Spec: resourcesv1alpha1.CoreSpec{Suspend: true},
 	}
 	require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
-	status := &resourcesv1alpha1.CoreStatus{}
 	obj := resourcestest.NewMockObject(t)
 	obj.EXPECT().K8sObject().Return(k8sObject)
-	obj.EXPECT().GetCoreSpec().Return(&resourcesv1alpha1.CoreSpec{Suspend: true})
-	obj.EXPECT().GetCoreStatus().Return(status)
+	obj.EXPECT().GetCoreSpec().Return(&k8sObject.Spec)
+	obj.EXPECT().GetCoreStatus().Return(&k8sObject.Status)
 
 	result, err := reconciler.Reconcile(context.Background(), obj)
 	assert.NoError(t, err)
@@ -158,24 +169,32 @@ func TestAddFinalizerAndSuspend(t *testing.T) {
 	// Suspend settles the object: no requeue of any kind.
 	assert.Equal(t, ctrl.Result{}, result)
 
-	suspended := meta.FindStatusCondition(status.Conditions, resources.ConditionSuspended.String())
+	// Assert on the status read back from the client, not the in-memory one,
+	// so a path that forgets to persist fails here.
+	fetched := &v1alpha1test.FakeObject{}
+	require.NoError(t, reconciler.client.Get(context.Background(), client.ObjectKeyFromObject(k8sObject), fetched))
+
+	suspended := meta.FindStatusCondition(fetched.Status.Conditions, resources.ConditionSuspended.String())
 	if assert.NotNil(t, suspended) {
 		assert.Equal(t, metav1.ConditionTrue, suspended.Status) // Suspended=True
 		assert.Equal(t, resources.ReasonSuspended.String(), suspended.Reason)
 	}
-	assert.True(t, meta.IsStatusConditionFalse(status.Conditions, resources.ConditionReady.String()))                                     // Ready=False
-	assert.True(t, meta.IsStatusConditionPresentAndEqual(status.Conditions, resources.ConditionSynced.String(), metav1.ConditionUnknown)) // Synced=Unknown
+	assert.True(t, meta.IsStatusConditionFalse(fetched.Status.Conditions, resources.ConditionReady.String()))                                     // Ready=False
+	assert.True(t, meta.IsStatusConditionPresentAndEqual(fetched.Status.Conditions, resources.ConditionSynced.String(), metav1.ConditionUnknown)) // Synced=Unknown
+
+	// The status changed, so the pass must be stamped and persisted.
+	assert.False(t, fetched.Status.ReconciledAt.IsZero())
 
 	// The finalizer must be persisted, not just set on the in-memory object.
-	fetched := &corev1.ConfigMap{}
-	require.NoError(t, reconciler.client.Get(context.Background(), client.ObjectKeyFromObject(k8sObject), fetched))
 	assert.Contains(t, fetched.Finalizers, resourcesv1alpha1.ResourceFinalizer)
 }
 
 func newTestReconciler(t *testing.T) (*commonReconciler, *providerconfigtest.MockResolver) {
 	resolver := providerconfigtest.NewMockResolver(t)
 	testReconciler := NewCommonReconciler(
-		fake.NewClientBuilder().Build(),
+		// Reconcile persists status changes, so the fake client must know FakeObject
+		// and treat it as having a status subresource.
+		fake.NewClientBuilder().WithScheme(v1alpha1test.Scheme()).WithStatusSubresource(&v1alpha1test.FakeObject{}).Build(),
 		resolver,
 		resourcestest.NewMockAdapter(t),
 		2*time.Second, // interval
