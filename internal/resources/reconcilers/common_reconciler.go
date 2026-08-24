@@ -11,11 +11,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
 	"github.com/SigNoz/signoz-operator/internal/errors"
+	"github.com/SigNoz/signoz-operator/internal/instrumentation"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 	"github.com/SigNoz/signoz-operator/internal/resources"
 )
@@ -70,7 +70,8 @@ func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources
 	if !apiequality.Semantic.DeepEqual(beforeStatus, obj.GetCoreStatus()) {
 		obj.GetCoreStatus().ReconciledAt = metav1.Now()
 
-		if uerr := reconciler.client.Status().Update(ctx, obj.K8sObject()); uerr != nil {
+		// The reconcile's timeout must not stop its outcome from being recorded.
+		if uerr := reconciler.client.Status().Update(context.WithoutCancel(ctx), obj.K8sObject()); uerr != nil {
 			return ctrl.Result{}, uerr
 		}
 	}
@@ -79,7 +80,7 @@ func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources
 }
 
 func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.reconcile")
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	k8sObject := obj.K8sObject()
 	spec := obj.GetCoreSpec()
@@ -124,8 +125,10 @@ func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources
 		return ctrl.Result{}, nil
 	}
 
-	sigNozClient, err := reconciler.resolveProviderConfig(ctx, obj, spec)
+	sigNozClient, err := reconciler.signozClientFor(ctx, obj, spec)
 	if err != nil {
+		requeueAfter := reconciler.retryInterval(obj)
+		logger.Error(err, "Could not resolve provider config, will retry", "requeueAfter", requeueAfter)
 		resources.SetConditionsOnOutcome(
 			status,
 			generation,
@@ -133,21 +136,27 @@ func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources
 			resources.ReasonProviderConfigNotReady,
 			err.Error(),
 		)
-		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
 	_, err = resourcesv1alpha1.GetIDFromSigNozResource(status.SigNozResource)
 	if err != nil {
 		// This is a new object.
-		return reconciler.OnNewObject(ctx, obj, sigNozClient, identity, hash)
+		return reconciler.onNewObject(ctx, obj, sigNozClient, identity, hash)
 	}
 
-	// This is an exisiting object which has been reconciled before.
-	return reconciler.OnExistingObject(ctx, obj, sigNozClient, hash)
+	// This is an exisiting object which has been reconciled before. Its id is
+	// durably recorded, so a pending create-attempt annotation has served its
+	// purpose.
+	if err := reconciler.removeCreateAttemptAnnotation(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return reconciler.onExistingObject(ctx, obj, sigNozClient, hash)
 }
 
-func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.OnNewObject")
+func (reconciler *commonReconciler) onNewObject(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
@@ -155,7 +164,7 @@ func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resourc
 	resourceMetadataCandidates, err := reconciler.adapter.Find(ctx, c, obj)
 	if err != nil {
 		logger.Error(err, "Failed to find object(s)")
-		return reconciler.OnAdapterOperationErr(obj, err)
+		return reconciler.onAdapterError(obj, err)
 	}
 
 	candidateIDs := resourcesv1alpha1.GetIDsFromSigNozResources(resourceMetadataCandidates)
@@ -168,6 +177,7 @@ func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resourc
 			id, err := resourcesv1alpha1.GetIDFromSigNozResource(resourceMetadata)
 			if err == nil {
 				if id == pinned {
+					logger.Info("Annotation pins the SigNoz object to adopt", "id", pinned)
 					return reconciler.adopt(ctx, obj, c, resourceMetadata, hash)
 				}
 			}
@@ -210,8 +220,8 @@ func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resourc
 	return ctrl.Result{}, nil
 }
 
-func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj resources.Object, c clients.SigNoz, hash string) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.OnExistingObject")
+func (reconciler *commonReconciler) onExistingObject(ctx context.Context, obj resources.Object, c clients.SigNoz, hash string) (ctrl.Result, error) {
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
@@ -220,6 +230,7 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 	remote, err := reconciler.adapter.Read(ctx, c, obj, resourceMetadata)
 	if errors.IsNotFound(err) {
 		// The remote is gone. Drop the stale metadata and requeue.
+		logger.Info("The SigNoz object was not found, dropping the stale metadata to recreate it", "resourceMetadata", resourceMetadata)
 		status.SigNozResource = nil
 		status.ObservedHash = ""
 		resources.SetConditionsOnOutcome(
@@ -235,7 +246,7 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 
 	if err != nil {
 		logger.Error(err, "Failed to read object", "resourceMetadata", resourceMetadata)
-		return reconciler.OnAdapterOperationErr(obj, err)
+		return reconciler.onAdapterError(obj, err)
 	}
 
 	compareResult, err := obj.Compare(remote)
@@ -288,10 +299,14 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 	// - If compare disagrees and hash agrees, that means the fields have been edited on SigNoz.
 	// - If compare agrees and hash disagrees, resource changed in a way that compare couldn't see - unobservable field (most likely new fields added in SigNoz but not yet in operator) or mapping gap. The hash's reason to exist.
 	// - If compare disagress and hash disagrees, that means the fields have been edited on SigNoz and possibly by another operator.
+	logger.Info("Detected drift, updating the SigNoz object", "updatableFields", compareResult.UpdatableFields, "hashChanged", isChangedByHash)
+
 	if err := reconciler.adapter.Update(ctx, c, obj, resourceMetadata); err != nil {
 		logger.Error(err, "Failed to update object", "resourceMetadata", resourceMetadata)
-		return reconciler.OnAdapterOperationErr(obj, err)
+		return reconciler.onAdapterError(obj, err)
 	}
+
+	logger.Info("Updated object in SigNoz", "resourceMetadata", resourceMetadata)
 
 	status.ObservedHash = hash
 	resources.SetConditionsOnOutcome(
@@ -305,15 +320,15 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 	return ctrl.Result{RequeueAfter: reconciler.interval(obj)}, nil
 }
 
-func (reconciler *commonReconciler) OnConflict(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.OnConflict")
+func (reconciler *commonReconciler) onConflict(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
+	logger := instrumentation.LoggerFromContext(ctx)
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
 
 	resourceMetadataCandidates, err := reconciler.adapter.Find(ctx, c, obj)
 	if err != nil {
 		logger.Error(err, "Failed to find object(s)")
-		return reconciler.OnAdapterOperationErr(obj, err)
+		return reconciler.onAdapterError(obj, err)
 	}
 
 	candidateIDs := resourcesv1alpha1.GetIDsFromSigNozResources(resourceMetadataCandidates)
@@ -324,19 +339,18 @@ func (reconciler *commonReconciler) OnConflict(ctx context.Context, obj resource
 	}
 
 	if len(resourceMetadataCandidates) == 0 {
-		// Remove the create attempt first
-		if err := reconciler.removeCreateAttemptAnnotation(ctx, obj); err != nil {
-			return ctrl.Result{}, err
-		}
-
+		// SigNoz reported a conflict but nothing is findable yet, likely a write
+		// that is not readable yet. Keep the create-attempt annotation and retry.
+		requeueAfter := reconciler.retryInterval(obj)
+		logger.Info("SigNoz reported a conflict but no matching object was found, will retry", "identity", identity, "requeueAfter", requeueAfter)
 		resources.SetConditionsOnOutcome(
 			status,
 			generation,
-			resources.ReconcilerOutcomeTerminal,
-			resources.ReasonRejected,
-			fmt.Sprintf("SigNoz reported a conflict for identity %q but no matching object was found", identity),
+			resources.ReconcilerOutcomeRecoverable,
+			resources.ReasonBackendError,
+			fmt.Sprintf("SigNoz reported a conflict for identity %q but no matching object was found; will retry", identity),
 		)
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
 	resources.SetConditionsOnOutcome(
@@ -350,8 +364,17 @@ func (reconciler *commonReconciler) OnConflict(ctx context.Context, obj resource
 	return ctrl.Result{}, nil
 }
 
+func (reconciler *commonReconciler) onAdapterError(obj resources.Object, err error) (ctrl.Result, error) {
+	outcome := resources.GetOutcomeAndSetConditionsOnErr(obj.GetCoreStatus(), obj.K8sObject().GetGeneration(), err)
+	if outcome == resources.ReconcilerOutcomeRecoverable {
+		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
+	}
+
+	return ctrl.Result{}, nil
+}
+
 func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.create")
+	logger := instrumentation.LoggerFromContext(ctx)
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
 
@@ -363,8 +386,10 @@ func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Ob
 	resourceMetadata, err := reconciler.adapter.Create(ctx, c, obj)
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
-			return reconciler.OnConflict(ctx, obj, c, identity, hash)
+			return reconciler.onConflict(ctx, obj, c, identity, hash)
 		}
+
+		logger.Error(err, "Failed to create object")
 
 		if !errors.IsRetryable(err) {
 			// If the error is not retryable, remove the create attempt annotation.
@@ -373,13 +398,14 @@ func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Ob
 			}
 		}
 
-		return reconciler.OnAdapterOperationErr(obj, err)
+		return reconciler.onAdapterError(obj, err)
 	}
 
-	if err := reconciler.removeCreateAttemptAnnotation(ctx, obj); err != nil {
-		return ctrl.Result{}, err
-	}
+	logger.Info("Created object in SigNoz", "resourceMetadata", resourceMetadata)
 
+	// The create-attempt annotation stays until the id below is durably in
+	// status; clearing it now would open a window where neither record names
+	// the object.
 	status.SigNozResource = resourceMetadata
 	status.ObservedHash = hash
 	resources.SetConditionsOnOutcome(
@@ -394,17 +420,24 @@ func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Ob
 }
 
 func (reconciler *commonReconciler) adopt(ctx context.Context, obj resources.Object, c clients.SigNoz, resourceMetadata *resourcesv1alpha1.SigNozResource, hash string) (ctrl.Result, error) {
-	if err := reconciler.removeCreateAttemptAnnotation(ctx, obj); err != nil {
+	logger := instrumentation.LoggerFromContext(ctx)
+
+	// Mark the binding before recording it, exactly like a create: if this pass
+	// dies before status is persisted, the annotation keeps finalize looking the
+	// object up instead of assuming nothing exists.
+	if err := reconciler.addCreateAttemptAnnotation(ctx, obj); err != nil {
 		return ctrl.Result{}, err
 	}
 
+	logger.Info("Adopting existing SigNoz object", "resourceMetadata", resourceMetadata)
+
 	obj.GetCoreStatus().SigNozResource = resourceMetadata
 
-	return reconciler.OnExistingObject(ctx, obj, c, hash)
+	return reconciler.onExistingObject(ctx, obj, c, hash)
 }
 
 func (reconciler *commonReconciler) finalize(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.finalize")
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	if !controllerutil.ContainsFinalizer(obj.K8sObject(), resourcesv1alpha1.ResourceFinalizer) {
 		return ctrl.Result{}, nil
@@ -413,10 +446,25 @@ func (reconciler *commonReconciler) finalize(ctx context.Context, obj resources.
 	spec := obj.GetCoreSpec()
 
 	if spec.ReclaimPolicy == resourcesv1alpha1.ReclaimOrphan {
+		logger.Info("Orphaning the SigNoz object per reclaim policy")
 		return reconciler.removeFinalizer(ctx, obj)
 	}
 
-	c, err := reconciler.resolveProviderConfig(ctx, obj, spec)
+	resourceMetadata := obj.GetCoreStatus().SigNozResource
+
+	_, idErr := resourcesv1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	// No recorded id and no pending create or adopt: nothing can exist in
+	// SigNoz to reclaim, so deletion need not wait on a resolvable provider
+	// config.
+	if idErr != nil {
+		if _, ok := obj.K8sObject().GetAnnotations()[resourcesv1alpha1.AnnotationCreateAttempt]; !ok {
+			logger.Info("No SigNoz object was ever bound to this resource, removing finalizer")
+			return reconciler.removeFinalizer(ctx, obj)
+		}
+	}
+
+	c, err := reconciler.signozClientFor(ctx, obj, spec)
 	if err != nil {
 		requeueAfter := reconciler.retryInterval(obj)
 		logger.Info("Waiting to reclaim the SigNoz object, its provider config is not resolvable", "requeueAfter", requeueAfter)
@@ -424,11 +472,8 @@ func (reconciler *commonReconciler) finalize(ctx context.Context, obj resources.
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	resourceMetadata := obj.GetCoreStatus().SigNozResource
-
-	_, err = resourcesv1alpha1.GetIDFromSigNozResource(resourceMetadata)
-	if err == nil {
-		return reconciler.delete(ctx, c, obj, resourceMetadata)
+	if idErr == nil {
+		return reconciler.reclaim(ctx, c, obj, resourceMetadata)
 	}
 
 	// An unconfirmed create may have left an object behind. Resolve it by
@@ -453,15 +498,15 @@ func (reconciler *commonReconciler) finalize(ctx context.Context, obj resources.
 	}
 
 	if len(found) == 1 {
-		return reconciler.delete(ctx, c, obj, found[0])
+		return reconciler.reclaim(ctx, c, obj, found[0])
 	}
 
 	logger.Info("Ambiguous SigNoz objects match this resource; will not guess which to reclaim", "count", len(found), "identity", identity)
 	return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
 }
 
-func (reconciler *commonReconciler) delete(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *resourcesv1alpha1.SigNozResource) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.delete")
+func (reconciler *commonReconciler) reclaim(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *resourcesv1alpha1.SigNozResource) (ctrl.Result, error) {
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	if err := reconciler.adapter.Delete(ctx, c, obj, resourceMetadata); err != nil && !errors.IsNotFound(err) {
 		logger.Error(err, "Could not reclaim the SigNoz object")
@@ -494,24 +539,6 @@ func (reconciler *commonReconciler) removeFinalizer(ctx context.Context, obj res
 	return ctrl.Result{}, reconciler.client.Update(ctx, k8sObject)
 }
 
-func (reconciler *commonReconciler) resolveProviderConfig(ctx context.Context, obj resources.Object, spec *resourcesv1alpha1.CoreSpec) (clients.SigNoz, error) {
-	resolved, err := reconciler.resolver.ResolveRef(ctx, spec.ProviderConfigRef, obj.K8sObject().GetNamespace(), reconciler.operatorNamespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return clients.New(resolved), nil
-}
-
-func (reconciler *commonReconciler) OnAdapterOperationErr(obj resources.Object, err error) (ctrl.Result, error) {
-	outcome := resources.GetOutcomeAndSetConditionsOnErr(obj.GetCoreStatus(), obj.K8sObject().GetGeneration(), err)
-	if outcome == resources.ReconcilerOutcomeRecoverable {
-		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
-	}
-
-	return ctrl.Result{}, nil
-}
-
 func (reconciler *commonReconciler) addCreateAttemptAnnotation(ctx context.Context, obj resources.Object) error {
 	k8sObject := obj.K8sObject()
 	patch := client.MergeFrom(k8sObject.DeepCopyObject().(client.Object))
@@ -541,6 +568,15 @@ func (reconciler *commonReconciler) removeCreateAttemptAnnotation(ctx context.Co
 	k8sObject.SetAnnotations(annotations)
 
 	return reconciler.client.Patch(ctx, k8sObject, patch)
+}
+
+func (reconciler *commonReconciler) signozClientFor(ctx context.Context, obj resources.Object, spec *resourcesv1alpha1.CoreSpec) (clients.SigNoz, error) {
+	resolved, err := reconciler.resolver.ResolveRef(ctx, spec.ProviderConfigRef, obj.K8sObject().GetNamespace(), reconciler.operatorNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return clients.New(resolved), nil
 }
 
 func (reconciler *commonReconciler) timeout(obj resources.Object) time.Duration {

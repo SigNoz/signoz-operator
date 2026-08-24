@@ -7,10 +7,13 @@ import (
 )
 
 const (
-	// AnnotationCreateAttempt records, before a create is issued, that the
-	// operator is about to POST. It lives in metadata, not status, so it survives
-	// a restore that drops status. Its value is the RFC3339 time of the attempt.
-	// See docs/idempotency.md.
+	// AnnotationCreateAttempt records, before a create is issued or an adoption
+	// is recorded, that a SigNoz object may be bound to this resource without
+	// status durably naming it yet. It is cleared once status holds the id, and
+	// while present it keeps deletion resolving the object by identity instead
+	// of assuming nothing exists. It lives in metadata, not status, so it
+	// survives a restore that drops status. Its value is the RFC3339 time of the
+	// attempt. See docs/idempotency.md.
 	AnnotationCreateAttempt = "resources.signoz.io/create-attempt"
 
 	// AnnotationSigNozResourceID pins the SigNoz object this resource mirrors, by

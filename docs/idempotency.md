@@ -77,15 +77,17 @@ The create sequence is then identical everywhere. `A` is the `resources.signoz.i
    (if this write fails, do not POST)
 
 4. POST — never retried
-     201             → status.signozResource.id = id; clear A; Synced=True
-     409             → it exists: Find() → adopt; if still not found → Terminal
+     201             → status.signozResource.id = id; Synced=True
+                       (A is cleared on the next pass, once the id is durably in status)
+     409             → it exists: Find() → adopt; if still not found, the write
+                       may not be readable yet → Recoverable; requeue
      other 4xx       → Terminal; clear A (nothing was created)
      5xx / timeout / connection error
                      → outcome UNKNOWN: leave A set; Synced=Unknown; requeue
 
 5. any reconcile with A set and status.signozResource.id == "":
        Find()
-         1 match              → adopt; clear A
+         1 match              → adopt (A is cleared once the id is durably in status)
          >1                   → Terminal (ambiguous) — never guess
          0, within grace      → Synced=Unknown; requeue
          0, past grace period → nothing was created; clear A; go to 3
