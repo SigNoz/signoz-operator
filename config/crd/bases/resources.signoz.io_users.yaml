@@ -49,7 +49,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: UserSpec is the desired state of a User.
             properties:
               interval:
                 description: |-

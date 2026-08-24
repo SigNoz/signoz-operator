@@ -3,15 +3,13 @@
 package v1alpha1
 
 import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type AuthDomainObjectSpec struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Config *apiextensionsv1.JSON `json:"config"`
+	Config AuthDomainConfig `json:"config"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -21,8 +19,97 @@ type AuthDomainObjectSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RoleMapping *apiextensionsv1.JSON `json:"roleMapping,omitempty"`
+	RoleMapping *AuthDomainRoleMapping `json:"roleMapping,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="self.kind != 'saml' || (has(self.spec.entityId) && has(self.spec.location) && has(self.spec.certificate))",message="kind saml requires spec.entityId, spec.location, spec.certificate"
+// +kubebuilder:validation:XValidation:rule="self.kind != 'google' || (has(self.spec.clientId) && has(self.spec.clientSecret))",message="kind google requires spec.clientId, spec.clientSecret"
+// +kubebuilder:validation:XValidation:rule="self.kind != 'oidc' || (has(self.spec.issuer) && has(self.spec.clientId) && has(self.spec.clientSecret))",message="kind oidc requires spec.issuer, spec.clientId, spec.clientSecret"
+type AuthDomainConfig struct {
+	// +kubebuilder:validation:Enum=saml;google;oidc
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec AuthDomainConfigSpec `json:"spec"`
+}
+
+type AuthDomainConfigSpec struct {
+	// +optional
+	AllowedGroups []string `json:"allowedGroups,omitempty"`
+
+	// +optional
+	AttributeMapping *AuthDomainAttributeMapping `json:"attributeMapping,omitempty"`
+
+	// +optional
+	Certificate string `json:"certificate,omitempty"`
+
+	// +optional
+	ClaimMapping *AuthDomainAttributeMapping `json:"claimMapping,omitempty"`
+
+	// +optional
+	ClientId string `json:"clientId,omitempty"`
+
+	// +optional
+	ClientSecret string `json:"clientSecret,omitempty"`
+
+	// +optional
+	DomainToAdminEmail map[string]string `json:"domainToAdminEmail,omitempty"`
+
+	// +optional
+	EntityId string `json:"entityId,omitempty"`
+
+	// +optional
+	FetchGroups bool `json:"fetchGroups,omitempty"`
+
+	// +optional
+	FetchTransitiveGroupMembership bool `json:"fetchTransitiveGroupMembership,omitempty"`
+
+	// +optional
+	GetUserInfo bool `json:"getUserInfo,omitempty"`
+
+	// +optional
+	InsecureSkipAuthNRequestsSigned bool `json:"insecureSkipAuthNRequestsSigned,omitempty"`
+
+	// +optional
+	InsecureSkipEmailVerified bool `json:"insecureSkipEmailVerified,omitempty"`
+
+	// +optional
+	Issuer string `json:"issuer,omitempty"`
+
+	// +optional
+	IssuerAlias string `json:"issuerAlias,omitempty"`
+
+	// +optional
+	Location string `json:"location,omitempty"`
+
+	// +optional
+	ServiceAccountJson string `json:"serviceAccountJson,omitempty"`
+}
+
+type AuthDomainAttributeMapping struct {
+	// +optional
+	Email string `json:"email,omitempty"`
+
+	// +optional
+	Groups string `json:"groups,omitempty"`
+
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// +optional
+	Role string `json:"role,omitempty"`
+}
+
+type AuthDomainRoleMapping struct {
+	// +optional
+	DefaultRole string `json:"defaultRole,omitempty"`
+
+	// +optional
+	GroupMappings map[string]string `json:"groupMappings,omitempty"`
+
+	// +optional
+	UseRoleAttribute bool `json:"useRoleAttribute,omitempty"`
 }
 
 // +kubebuilder:validation:MinProperties=1
@@ -57,15 +144,12 @@ type AuthDomainStatus struct {
 type AuthDomain struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// metadata is a standard object metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// spec defines the desired state of AuthDomain
 	// +required
 	Spec AuthDomainSpec `json:"spec"`
 
-	// status defines the observed state of AuthDomain
 	// +optional
 	Status AuthDomainStatus `json:"status,omitzero"`
 }

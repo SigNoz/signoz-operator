@@ -50,7 +50,9 @@ rules:
   - resources.signoz.io
   resources:
   - authdomains
+  - dashboards
   - providerconfigs
+  - savedviews
   - users
   verbs:
   - create
@@ -64,7 +66,9 @@ rules:
   - resources.signoz.io
   resources:
   - authdomains/finalizers
+  - dashboards/finalizers
   - providerconfigs/finalizers
+  - savedviews/finalizers
   - users/finalizers
   verbs:
   - update
@@ -72,7 +76,9 @@ rules:
   - resources.signoz.io
   resources:
   - authdomains/status
+  - dashboards/status
   - providerconfigs/status
+  - savedviews/status
   - users/status
   verbs:
   - get

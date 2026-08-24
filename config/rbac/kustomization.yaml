@@ -23,6 +23,15 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the signoz-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- resources_savedview_admin_role.yaml
+- resources_savedview_editor_role.yaml
+- resources_savedview_viewer_role.yaml
+- resources_dashboard_admin_role.yaml
+- resources_dashboard_editor_role.yaml
+- resources_dashboard_viewer_role.yaml
+- resources_authdomain_admin_role.yaml
+- resources_authdomain_editor_role.yaml
+- resources_authdomain_viewer_role.yaml
 - resources_user_admin_role.yaml
 - resources_user_editor_role.yaml
 - resources_user_viewer_role.yaml

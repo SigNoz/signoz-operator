@@ -27,7 +27,6 @@ type UserObjectTemplate struct {
 	JSONSpec *string `json:"jsonSpec,omitempty"`
 }
 
-// UserSpec is the desired state of a User.
 type UserSpec struct {
 	CoreSpec `json:",inline"`
 

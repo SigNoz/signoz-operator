@@ -49,7 +49,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of AuthDomain
             properties:
               interval:
                 description: |-
@@ -67,14 +66,104 @@ spec:
                   spec:
                     properties:
                       config:
-                        x-kubernetes-preserve-unknown-fields: true
+                        properties:
+                          kind:
+                            enum:
+                            - saml
+                            - google
+                            - oidc
+                            type: string
+                          spec:
+                            properties:
+                              allowedGroups:
+                                items:
+                                  type: string
+                                type: array
+                              attributeMapping:
+                                properties:
+                                  email:
+                                    type: string
+                                  groups:
+                                    type: string
+                                  name:
+                                    type: string
+                                  role:
+                                    type: string
+                                type: object
+                              certificate:
+                                type: string
+                              claimMapping:
+                                properties:
+                                  email:
+                                    type: string
+                                  groups:
+                                    type: string
+                                  name:
+                                    type: string
+                                  role:
+                                    type: string
+                                type: object
+                              clientId:
+                                type: string
+                              clientSecret:
+                                type: string
+                              domainToAdminEmail:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              entityId:
+                                type: string
+                              fetchGroups:
+                                type: boolean
+                              fetchTransitiveGroupMembership:
+                                type: boolean
+                              getUserInfo:
+                                type: boolean
+                              insecureSkipAuthNRequestsSigned:
+                                type: boolean
+                              insecureSkipEmailVerified:
+                                type: boolean
+                              issuer:
+                                type: string
+                              issuerAlias:
+                                type: string
+                              location:
+                                type: string
+                              serviceAccountJson:
+                                type: string
+                            type: object
+                        required:
+                        - kind
+                        - spec
+                        type: object
+                        x-kubernetes-validations:
+                        - message: kind saml requires spec.entityId, spec.location,
+                            spec.certificate
+                          rule: self.kind != 'saml' || (has(self.spec.entityId) &&
+                            has(self.spec.location) && has(self.spec.certificate))
+                        - message: kind google requires spec.clientId, spec.clientSecret
+                          rule: self.kind != 'google' || (has(self.spec.clientId)
+                            && has(self.spec.clientSecret))
+                        - message: kind oidc requires spec.issuer, spec.clientId,
+                            spec.clientSecret
+                          rule: self.kind != 'oidc' || (has(self.spec.issuer) && has(self.spec.clientId)
+                            && has(self.spec.clientSecret))
                       enabled:
                         type: boolean
                       name:
                         minLength: 1
                         type: string
                       roleMapping:
-                        x-kubernetes-preserve-unknown-fields: true
+                        properties:
+                          defaultRole:
+                            type: string
+                          groupMappings:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          useRoleAttribute:
+                            type: boolean
+                        type: object
                     required:
                     - config
                     - name
@@ -127,7 +216,6 @@ spec:
             - providerConfigRef
             type: object
           status:
-            description: status defines the observed state of AuthDomain
             properties:
               conditions:
                 description: |-

@@ -10,8 +10,6 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/SigNoz/signoz-operator/internal/build"
-	internalconfig "github.com/SigNoz/signoz-operator/internal/config"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -19,6 +17,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/SigNoz/signoz-operator/internal/build"
+	internalconfig "github.com/SigNoz/signoz-operator/internal/config"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	resourcescontroller "github.com/SigNoz/signoz-operator/internal/controller/resources"
@@ -122,6 +123,54 @@ func run(cfg *config) error {
 		),
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("could not create controller resources-user: %w", err)
+	}
+
+	if err := (&resourcescontroller.AuthDomainReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewAuthDomainAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-authdomain: %w", err)
+	}
+
+	if err := (&resourcescontroller.DashboardReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewDashboardAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-dashboard: %w", err)
+	}
+
+	if err := (&resourcescontroller.SavedViewReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewSavedViewAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-savedview: %w", err)
 	}
 
 	// +kubebuilder:scaffold:builder

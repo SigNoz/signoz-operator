@@ -54,3 +54,45 @@ resources:
         - updatedAt
         - updatedBy
         - authNProviderInfo
+  saved_view:
+    identity:
+      field: name
+    create:
+      path: /api/v2/saved_views
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v2/saved_views/{id}
+      method: GET
+    update:
+      path: /api/v2/saved_views/{id}
+      method: PUT
+    delete:
+      path: /api/v2/saved_views/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - generateName
+  dashboard:
+    identity:
+      field: name
+    create:
+      path: /api/v2/dashboards
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v2/dashboards/{id}
+      method: GET
+    update:
+      path: /api/v2/dashboards/{id}
+      method: PUT
+    delete:
+      path: /api/v2/dashboards/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - generateName
