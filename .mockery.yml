@@ -1,0 +1,15 @@
+template: testify
+dir: '{{.InterfaceDir}}/{{.SrcPackageName}}test'
+filename: 'mock_{{.InterfaceName | lower}}.go'
+structname: 'Mock{{.InterfaceName}}'
+pkgname: '{{.SrcPackageName}}test'
+packages:
+  github.com/SigNoz/signoz-operator/internal/providerconfig:
+    interfaces:
+      Resolver:
+  github.com/SigNoz/signoz-operator/internal/resources:
+    interfaces:
+      Adapter:
+      Finder:
+      Object:
+      Transport:

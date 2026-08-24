@@ -8,35 +8,30 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/errors"
 )
 
-// Condition types are fixed and shared across every mirrored kind; per-kind
-// detail lives in the reason and message, never the type. See
-// docs/core-status.md.
 var (
-	// conditionReady is the single condition a user or tool should wait on. It is
-	// derived, rolling up the others by precedence.
-	conditionReady = condition{s: "Ready", isAlwaysPresent: true}
+	// ConditionReady is the single condition a user or tool should wait on. It is derived, rolling up the others by precedence.
+	ConditionReady = condition{s: "Ready", isAlwaysPresent: true}
 
-	// conditionSynced is three-valued: True when the remote matches desired,
-	// False when a Terminal cause means it never will, Unknown otherwise.
-	conditionSynced = condition{s: "Synced", isAlwaysPresent: true}
+	// ConditionSynced is three-valued: True when the remote matches desired, False when a Terminal cause means it never will, Unknown otherwise.
+	ConditionSynced = condition{s: "Synced", isAlwaysPresent: true}
 
-	// conditionTerminal marks desired state a retry will not fix. A stable state:
-	// the reconciler settles here and does not requeue.
-	conditionTerminal = condition{s: "Terminal", isAlwaysPresent: false}
+	// ConditionTerminal marks desired state a retry will not fix. A stable state: the reconciler settles here and does not requeue.
+	ConditionTerminal = condition{s: "Terminal", isAlwaysPresent: false}
 
-	// conditionRecoverable marks a transient failure, retried at retryInterval.
-	conditionRecoverable = condition{s: "Recoverable", isAlwaysPresent: false}
+	// ConditionRecoverable marks a transient failure, retried at retryInterval.
+	ConditionRecoverable = condition{s: "Recoverable", isAlwaysPresent: false}
 
-	// conditionSuspended marks reconciliation paused by spec.suspend.
-	conditionSuspended = condition{s: "Suspended", isAlwaysPresent: false}
+	// ConditionSuspended marks reconciliation paused by spec.suspend.
+	ConditionSuspended = condition{s: "Suspended", isAlwaysPresent: false}
 )
 
-// condition is one of the fixed types above. An always-present condition is
-// three-valued and never removed; a marker is present (True) only while it
-// applies and removed otherwise.
 type condition struct {
 	s               string
 	isAlwaysPresent bool
+}
+
+func (c condition) String() string {
+	return c.s
 }
 
 func SetConditionsOnOutcome(status *v1alpha1.CoreStatus, generation int64, outcome ReconcilerOutcome, reason Reason, message string) {
@@ -50,10 +45,10 @@ func SetConditionsOnOutcome(status *v1alpha1.CoreStatus, generation int64, outco
 		synced = metav1.ConditionFalse
 	}
 
-	apply(status, generation, conditionSynced, synced, reason, message)
-	apply(status, generation, conditionSuspended, presence(outcome == ReconcilerOutcomeSuspended), reason, message)
-	apply(status, generation, conditionTerminal, presence(outcome == ReconcilerOutcomeTerminal), reason, message)
-	apply(status, generation, conditionRecoverable, presence(outcome == ReconcilerOutcomeRecoverable), reason, message)
+	apply(status, generation, ConditionSynced, synced, reason, message)
+	apply(status, generation, ConditionSuspended, presence(outcome == ReconcilerOutcomeSuspended), reason, message)
+	apply(status, generation, ConditionTerminal, presence(outcome == ReconcilerOutcomeTerminal), reason, message)
+	apply(status, generation, ConditionRecoverable, presence(outcome == ReconcilerOutcomeRecoverable), reason, message)
 
 	ready := metav1.ConditionUnknown
 	switch outcome {
@@ -63,7 +58,7 @@ func SetConditionsOnOutcome(status *v1alpha1.CoreStatus, generation int64, outco
 		ready = metav1.ConditionFalse
 	}
 
-	apply(status, generation, conditionReady, ready, reason, message)
+	apply(status, generation, ConditionReady, ready, reason, message)
 }
 
 func GetOutcomeAndSetConditionsOnErr(status *v1alpha1.CoreStatus, generation int64, err error) ReconcilerOutcome {
@@ -91,8 +86,6 @@ func GetOutcomeAndSetConditionsOnErr(status *v1alpha1.CoreStatus, generation int
 	return ReconcilerOutcomeTerminal
 }
 
-// apply writes one condition; a marker that does not hold is removed rather
-// than written False — presence is its signal.
 func apply(status *v1alpha1.CoreStatus, generation int64, c condition, s metav1.ConditionStatus, reason Reason, message string) {
 	if !c.isAlwaysPresent && s != metav1.ConditionTrue {
 		meta.RemoveStatusCondition(&status.Conditions, c.s)
