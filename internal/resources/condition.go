@@ -80,6 +80,7 @@ func GetOutcomeAndSetConditionsOnErr(status *v1alpha1.CoreStatus, generation int
 
 	if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
 		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeTerminal, ReasonUnauthorized, err.Error())
+		return ReconcilerOutcomeTerminal
 	}
 
 	SetConditionsOnOutcome(status, generation, ReconcilerOutcomeTerminal, ReasonRejected, err.Error())

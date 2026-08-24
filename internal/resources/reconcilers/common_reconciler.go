@@ -45,8 +45,6 @@ func NewCommonReconciler(kubeClient client.Client, resolver providerconfig.Resol
 }
 
 func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx).WithName("CommonReconciler.Reconcile")
-
 	// Set timeout for the entire reconciler based on obj.timeout or default timeout.
 	if timeout := reconciler.timeout(obj); timeout > 0 {
 		var cancel context.CancelFunc
@@ -66,6 +64,23 @@ func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources
 	}
 
 	beforeStatus := obj.GetCoreStatus().DeepCopy()
+
+	result, err := reconciler.reconcile(ctx, obj)
+
+	if !apiequality.Semantic.DeepEqual(beforeStatus, obj.GetCoreStatus()) {
+		obj.GetCoreStatus().ReconciledAt = metav1.Now()
+
+		if uerr := reconciler.client.Status().Update(ctx, obj.K8sObject()); uerr != nil {
+			return ctrl.Result{}, uerr
+		}
+	}
+
+	return result, err
+}
+
+func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx).WithName("CommonReconciler.reconcile")
+
 	k8sObject := obj.K8sObject()
 	spec := obj.GetCoreSpec()
 	status := obj.GetCoreStatus()
@@ -73,7 +88,7 @@ func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources
 
 	// Nothing to do if the spec has been suspended.
 	if spec.Suspend {
-		logger.Info("Object has spec.suspend set, there is no nothing to do")
+		logger.Info("Object has spec.suspend set, there is nothing to do")
 		resources.SetConditionsOnOutcome(
 			status,
 			generation,
@@ -121,27 +136,14 @@ func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources
 		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
 	}
 
-	var result ctrl.Result
 	_, err = resourcesv1alpha1.GetIDFromSigNozResource(status.SigNozResource)
 	if err != nil {
 		// This is a new object.
-		result, err = reconciler.OnNewObject(ctx, obj, sigNozClient, identity, hash)
-	} else {
-		// This is an exisiting object which has been reconciled before.
-		result, err = reconciler.OnExistingObject(ctx, obj, sigNozClient, hash)
+		return reconciler.OnNewObject(ctx, obj, sigNozClient, identity, hash)
 	}
 
-	status.ReconciledAt = metav1.Now()
-
-	if apiequality.Semantic.DeepEqual(beforeStatus, obj.GetCoreStatus()) {
-		return ctrl.Result{}, nil
-	}
-
-	if err := reconciler.client.Status().Update(ctx, obj.K8sObject()); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return result, err
+	// This is an exisiting object which has been reconciled before.
+	return reconciler.OnExistingObject(ctx, obj, sigNozClient, hash)
 }
 
 func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
@@ -171,12 +173,17 @@ func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resourc
 			}
 		}
 
+		candidates := "none"
+		if len(candidateIDs) > 0 {
+			candidates = strings.Join(candidateIDs, ", ")
+		}
+
 		resources.SetConditionsOnOutcome(
 			status,
 			generation,
 			resources.ReconcilerOutcomeTerminal,
 			resources.ReasonSigNozResourceIDMismatch,
-			fmt.Sprintf("annotation %s: no object with id %q matches identity %q%s", resourcesv1alpha1.AnnotationSigNozResourceID, pinned, identity, strings.Join(candidateIDs, ", ")),
+			fmt.Sprintf("annotation %s: no object with id %q matches identity %q (candidates: %s)", resourcesv1alpha1.AnnotationSigNozResourceID, pinned, identity, candidates),
 		)
 		return ctrl.Result{}, nil
 	}
@@ -197,7 +204,7 @@ func (reconciler *commonReconciler) OnNewObject(ctx context.Context, obj resourc
 		generation,
 		resources.ReconcilerOutcomeTerminal,
 		resources.ReasonAmbiguous,
-		fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q%s; set annotation %s to the id of the one to adopt", len(resourceMetadataCandidates), identity, strings.Join(candidateIDs, ", "), resourcesv1alpha1.AnnotationSigNozResourceID),
+		fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q (candidates: %s); set annotation %s to the id of the one to adopt", len(resourceMetadataCandidates), identity, strings.Join(candidateIDs, ", "), resourcesv1alpha1.AnnotationSigNozResourceID),
 	)
 
 	return ctrl.Result{}, nil
@@ -211,11 +218,6 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 	resourceMetadata := status.SigNozResource
 
 	remote, err := reconciler.adapter.Read(ctx, c, obj, resourceMetadata)
-	if err != nil {
-		logger.Error(err, "Failed to read object", "resourceMetadata", resourceMetadata)
-		return reconciler.OnAdapterOperationErr(obj, err)
-	}
-
 	if errors.IsNotFound(err) {
 		// The remote is gone. Drop the stale metadata and requeue.
 		status.SigNozResource = nil
@@ -231,6 +233,11 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 		return ctrl.Result{RequeueAfter: reconciler.requeueAfterOnNotFound}, nil
 	}
 
+	if err != nil {
+		logger.Error(err, "Failed to read object", "resourceMetadata", resourceMetadata)
+		return reconciler.OnAdapterOperationErr(obj, err)
+	}
+
 	compareResult, err := obj.Compare(remote)
 	if err != nil {
 		// For some internal reason, compare has failed in the operator. This is likely a bug in the operator and needs to be fixed.
@@ -242,7 +249,7 @@ func (reconciler *commonReconciler) OnExistingObject(ctx context.Context, obj re
 			"This is likely a bug in the operator: "+err.Error(),
 		)
 
-		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
+		return ctrl.Result{}, nil
 	}
 
 	if len(compareResult.ImmutableFields) > 0 {
@@ -337,14 +344,14 @@ func (reconciler *commonReconciler) OnConflict(ctx context.Context, obj resource
 		generation,
 		resources.ReconcilerOutcomeTerminal,
 		resources.ReasonAmbiguous,
-		fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q%s; set annotation %s to the id of the one to adopt", len(resourceMetadataCandidates), identity, strings.Join(candidateIDs, ", "), resourcesv1alpha1.AnnotationSigNozResourceID),
+		fmt.Sprintf("ambiguous: %d objects in SigNoz match identity %q (candidates: %s); set annotation %s to the id of the one to adopt", len(resourceMetadataCandidates), identity, strings.Join(candidateIDs, ", "), resourcesv1alpha1.AnnotationSigNozResourceID),
 	)
 
 	return ctrl.Result{}, nil
 }
 
 func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := logf.FromContext(ctx, "CommonReconciler.create")
+	logger := logf.FromContext(ctx).WithName("CommonReconciler.create")
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
 
