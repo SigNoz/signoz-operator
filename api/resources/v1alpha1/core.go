@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -87,6 +89,16 @@ type SigNozResource struct {
 	// adopted the remote object.
 	// +optional
 	ID *string `json:"id,omitempty"`
+}
+
+// GetIDFromSigNozResource returns the recorded id; the engine only hands an
+// adapter metadata a create or lookup has filled in.
+func GetIDFromSigNozResource(resourceMetadata *SigNozResource) (string, error) {
+	if resourceMetadata == nil || resourceMetadata.ID == nil || *resourceMetadata.ID == "" {
+		return "", errors.New("signozResource carries no id")
+	}
+
+	return *resourceMetadata.ID, nil
 }
 
 // CoreStatus is the observed-state counterpart of CoreSpec, embedded inline by

@@ -103,7 +103,7 @@ The condition vocabulary is the same on every kind. Types are fixed; kind-specif
 | `Ready` | Derived, not set directly: the controller rolls up the others and reports the most serious that applies, in the precedence `Suspended`, then `Terminal`, then `Recoverable`, then `Synced` — so `Ready`'s reason is always the most actionable state currently true. Its status follows the condition it summarises, including `Unknown`. The single condition a user or tool should wait on. |
 | `Suspended` | Reconciliation is paused by [`spec.suspend`](core-spec.md); the operator is deliberately not acting on this resource. |
 
-Which API outcome maps to `Terminal` versus `Recoverable` is a per-resource table of status codes, kept as data next to each adapter rather than as a branch inside the reconcile loop, so a new resource declares its classification instead of editing shared control flow.
+Which HTTP status maps to `Terminal` versus `Recoverable` is fixed, the same for every kind: 400, 401, 403 and 409 are `Terminal` — a rejected body, a rejected credential and a collision are failures no retry will fix — and any other non-2xx status is `Recoverable`, so a status the classifier does not recognise keeps retrying. Method-specific meaning stays in the reconcile flow, not in the classifier: a 409 on create is intercepted and resolved by lookup before it can settle ([idempotency.md](idempotency.md)), and a failed delete is retried whatever its classification, so reclaim never strands on a settled state.
 
 `reason` carries one further distinction that no condition type does: whether the failure is attributable to the resource's own body or to the backend it writes through. A body the server rejected, a colliding name and an unparseable payload are the resource's; an unresolvable `providerConfigRef`, a missing Secret key, a rejected credential and an unreachable endpoint belong to the referenced `ProviderConfig`, and their reasons name it. That is what lets a user tell "my dashboard is wrong" from "my credential is wrong" without reading every other resource on the cluster — see [provider-config.md](provider-config.md).
 
@@ -121,7 +121,7 @@ Which API outcome maps to `Terminal` versus `Recoverable` is a per-resource tabl
 
 - `lastTransitionTime` moves only on a real state change, because conditions are written through `meta.SetStatusCondition`. A reconcile that observes no change writes no transition, so the object does not churn and `resourceVersion` does not advance needlessly.
 
-- Every adapter must supply its own error-code classification table. An adapter that leaves it empty gets no `Terminal` states, so its invalid resources fall back to `Recoverable` and retry forever — the failure the taxonomy exists to prevent — which makes the table a required part of adding a resource, not an optional refinement.
+- Classification is shared policy, so adding a resource cannot get it wrong: every kind settles on `Terminal` for the statuses no retry will fix, and none can retry an invalid body forever through a classification gap. The cost is uniformity — an endpoint whose semantics genuinely diverge, a status transient on one API and permanent on another, needs the shared policy revisited rather than a local exception.
 
 ## Sources
 

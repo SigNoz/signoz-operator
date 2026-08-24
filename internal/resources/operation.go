@@ -1,11 +1,11 @@
 package resources
 
 var (
-	AdapterOperationCreate  = AdapterOperation{s: "create"}
-	AdapterOperationFind    = AdapterOperation{s: "find"}
-	AdapterOperationObserve = AdapterOperation{s: "observe"}
-	AdapterOperationUpdate  = AdapterOperation{s: "update"}
-	AdapterOperationDelete  = AdapterOperation{s: "delete"}
+	AdapterOperationCreate = AdapterOperation{s: "create"}
+	AdapterOperationFind   = AdapterOperation{s: "find"}
+	AdapterOperationRead   = AdapterOperation{s: "read"}
+	AdapterOperationUpdate = AdapterOperation{s: "update"}
+	AdapterOperationDelete = AdapterOperation{s: "delete"}
 )
 
 type AdapterOperation struct{ s string }

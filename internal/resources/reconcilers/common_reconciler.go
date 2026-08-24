@@ -335,9 +335,9 @@ func (e *engine) reconcileExisting(
 	generation := obj.K8sObject().GetGeneration()
 	resourceMetadata := status.SigNozResource
 
-	found, upToDate, err := e.adapter.Observe(ctx, c, obj, resourceMetadata)
+	found, remote, err := e.adapter.Read(ctx, c, resourceMetadata)
 	if err != nil {
-		return e.fail(obj, resources.AdapterOperationObserve, err)
+		return e.fail(obj, resources.AdapterOperationRead, err)
 	}
 
 	if !found {
@@ -351,10 +351,26 @@ func (e *engine) reconcileExisting(
 		return ctrl.Result{RequeueAfter: e.retryInterval(obj)}, nil
 	}
 
+	drift, err := obj.Compare(remote)
+	if err != nil {
+		resources.SetConditions(status, generation, resources.ReconcilerOutcomeRecoverable, resources.ReasonBackendError, "read: could not compare against the remote object: "+err.Error())
+
+		return ctrl.Result{RequeueAfter: e.retryInterval(obj)}, nil
+	}
+
+	if len(drift.ImmutableFields) > 0 {
+		resources.SetConditions(status, generation, resources.ReconcilerOutcomeTerminal, resources.ReasonImmutableFieldChanged,
+			fmt.Sprintf("Immutable fields changed: %s. Revert the change, or delete and recreate the resource", strings.Join(drift.ImmutableFields, ", ")))
+
+		return ctrl.Result{}, nil
+	}
+
+	upToDate := len(drift.UpdatableFields) == 0
+
 	// An empty recorded hash has no prior write to compare against — a first
-	// observation or a fresh adoption — so the adapter's compare is trusted alone.
-	// It lets a kind whose remote state cannot be compared field-for-field still
-	// detect a spec edit, per docs/core-status.md.
+	// observation or a fresh adoption — so the managed-field compare is trusted
+	// alone. It lets a kind whose remote state cannot be compared
+	// field-for-field still detect a spec edit, per docs/core-status.md.
 	desiredChanged := status.ObservedHash != "" && status.ObservedHash != hash
 
 	if upToDate && !desiredChanged {
