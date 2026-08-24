@@ -1,13 +1,12 @@
 package providerconfig
 
 import (
-	"errors"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/internal/errors"
 )
 
 const ConditionReady = "Ready"
@@ -23,17 +22,17 @@ func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation in
 		ObservedGeneration: generation,
 	}
 
-	var failure *ResolverError
+	var failure *errors.Base
 
 	switch {
 	case resolveErr == nil:
 	case errors.As(resolveErr, &failure):
 		ready.Status = metav1.ConditionFalse
-		ready.Reason = failure.Reason.String()
-		ready.Message = failure.Message
+		ready.Reason = conditionReason(failure)
+		ready.Message = failure.Message()
 	default:
 		ready.Status = metav1.ConditionFalse
-		ready.Reason = ReasonReferenceReadFailed.String()
+		ready.Reason = CodeReferenceReadFailed.String()
 		ready.Message = resolveErr.Error()
 	}
 
@@ -58,4 +57,14 @@ func SetConditions(status *resourcesv1alpha1.ProviderConfigStatus, generation in
 
 		status.ObservedRefVersions[kind] = observed
 	}
+}
+
+// conditionReason is the failure's code, falling back for an error minted
+// without one.
+func conditionReason(failure *errors.Base) string {
+	if code := failure.Code(); code != errors.CodeUnknown {
+		return code.String()
+	}
+
+	return CodeReferenceReadFailed.String()
 }

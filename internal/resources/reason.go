@@ -21,6 +21,11 @@ var (
 	// object among those matching this resource's identity. The resource's own.
 	ReasonSigNozResourceIDMismatch = Reason{s: "SigNozResourceIDMismatch"}
 
+	// ReasonImmutableFieldChanged is a field settable only at create — the
+	// identity among them — edited after the object was established; no update
+	// can apply it. The resource's own.
+	ReasonImmutableFieldChanged = Reason{s: "ImmutableFieldChanged"}
+
 	// ReasonUnauthorized is a credential the server rejected (401/403).
 	// Attributable to the provider config.
 	ReasonUnauthorized = Reason{s: "Unauthorized"}
@@ -37,6 +42,8 @@ var (
 
 	// ReasonSuspended is reconciliation paused by spec.suspend.
 	ReasonSuspended = Reason{s: "Suspended"}
+
+	ReasonCompareFailed = Reason{s: "CompareFailed"}
 )
 
 // Reasons are the machine-readable causes reported on conditions, shared across every mirrored kind.

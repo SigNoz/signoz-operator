@@ -5,6 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/internal/errors"
 )
 
 // Condition types are fixed and shared across every mirrored kind; per-kind
@@ -38,13 +39,7 @@ type condition struct {
 	isAlwaysPresent bool
 }
 
-// SetConditions renders one reconciler outcome onto status: Synced is always
-// present, exactly the marker matching the outcome is present, and Ready is
-// derived so a reader waits on one condition.
-func SetConditions(status *v1alpha1.CoreStatus, generation int64, outcome ReconcilerOutcome, reason Reason, message string) {
-	// Stamp here rather than earlier in the reconcile: a metadata patch re-reads
-	// the object and drops status set before it, so observedGeneration must be
-	// written alongside the conditions, which are always the last status mutation.
+func SetConditionsOnOutcome(status *v1alpha1.CoreStatus, generation int64, outcome ReconcilerOutcome, reason Reason, message string) {
 	status.ObservedGeneration = generation
 
 	synced := metav1.ConditionUnknown
@@ -69,6 +64,31 @@ func SetConditions(status *v1alpha1.CoreStatus, generation int64, outcome Reconc
 	}
 
 	apply(status, generation, conditionReady, ready, reason, message)
+}
+
+func GetOutcomeAndSetConditionsOnErr(status *v1alpha1.CoreStatus, generation int64, err error) ReconcilerOutcome {
+	var base *errors.Base
+	if !errors.As(err, &base) {
+		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeRecoverable, ReasonBackendUnreachable, err.Error())
+		return ReconcilerOutcomeRecoverable
+	}
+
+	if errors.IsUnreachable(err) {
+		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeRecoverable, ReasonBackendUnreachable, err.Error())
+		return ReconcilerOutcomeRecoverable
+	}
+
+	if errors.IsRetryable(err) {
+		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeRecoverable, ReasonBackendError, err.Error())
+		return ReconcilerOutcomeRecoverable
+	}
+
+	if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
+		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeTerminal, ReasonUnauthorized, err.Error())
+	}
+
+	SetConditionsOnOutcome(status, generation, ReconcilerOutcomeTerminal, ReasonRejected, err.Error())
+	return ReconcilerOutcomeTerminal
 }
 
 // apply writes one condition; a marker that does not hold is removed rather
