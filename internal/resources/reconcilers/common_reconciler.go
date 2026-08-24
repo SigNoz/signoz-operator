@@ -3,21 +3,19 @@ package reconcilers
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
 	"github.com/SigNoz/signoz-operator/internal/errors"
+	"github.com/SigNoz/signoz-operator/internal/instrumentation"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 	"github.com/SigNoz/signoz-operator/internal/resources"
 )
@@ -82,7 +80,7 @@ func (reconciler *commonReconciler) Reconcile(ctx context.Context, obj resources
 }
 
 func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	k8sObject := obj.K8sObject()
 	spec := obj.GetCoreSpec()
@@ -158,7 +156,7 @@ func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources
 }
 
 func (reconciler *commonReconciler) onNewObject(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
@@ -223,7 +221,7 @@ func (reconciler *commonReconciler) onNewObject(ctx context.Context, obj resourc
 }
 
 func (reconciler *commonReconciler) onExistingObject(ctx context.Context, obj resources.Object, c clients.SigNoz, hash string) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
@@ -323,7 +321,7 @@ func (reconciler *commonReconciler) onExistingObject(ctx context.Context, obj re
 }
 
 func (reconciler *commonReconciler) onConflict(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
 
@@ -366,8 +364,17 @@ func (reconciler *commonReconciler) onConflict(ctx context.Context, obj resource
 	return ctrl.Result{}, nil
 }
 
+func (reconciler *commonReconciler) onAdapterError(obj resources.Object, err error) (ctrl.Result, error) {
+	outcome := resources.GetOutcomeAndSetConditionsOnErr(obj.GetCoreStatus(), obj.K8sObject().GetGeneration(), err)
+	if outcome == resources.ReconcilerOutcomeRecoverable {
+		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
+	}
+
+	return ctrl.Result{}, nil
+}
+
 func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Object, c clients.SigNoz, identity, hash string) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 	status := obj.GetCoreStatus()
 	generation := obj.K8sObject().GetGeneration()
 
@@ -413,7 +420,7 @@ func (reconciler *commonReconciler) create(ctx context.Context, obj resources.Ob
 }
 
 func (reconciler *commonReconciler) adopt(ctx context.Context, obj resources.Object, c clients.SigNoz, resourceMetadata *resourcesv1alpha1.SigNozResource, hash string) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	// Mark the binding before recording it, exactly like a create: if this pass
 	// dies before status is persisted, the annotation keeps finalize looking the
@@ -430,7 +437,7 @@ func (reconciler *commonReconciler) adopt(ctx context.Context, obj resources.Obj
 }
 
 func (reconciler *commonReconciler) finalize(ctx context.Context, obj resources.Object) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	if !controllerutil.ContainsFinalizer(obj.K8sObject(), resourcesv1alpha1.ResourceFinalizer) {
 		return ctrl.Result{}, nil
@@ -499,7 +506,7 @@ func (reconciler *commonReconciler) finalize(ctx context.Context, obj resources.
 }
 
 func (reconciler *commonReconciler) reclaim(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *resourcesv1alpha1.SigNozResource) (ctrl.Result, error) {
-	logger := loggerFromContext(ctx)
+	logger := instrumentation.LoggerFromContext(ctx)
 
 	if err := reconciler.adapter.Delete(ctx, c, obj, resourceMetadata); err != nil && !errors.IsNotFound(err) {
 		logger.Error(err, "Could not reclaim the SigNoz object")
@@ -508,15 +515,6 @@ func (reconciler *commonReconciler) reclaim(ctx context.Context, c clients.SigNo
 
 	logger.Info("Reclaimed the SigNoz object")
 	return reconciler.removeFinalizer(ctx, obj)
-}
-
-func (reconciler *commonReconciler) onAdapterError(obj resources.Object, err error) (ctrl.Result, error) {
-	outcome := resources.GetOutcomeAndSetConditionsOnErr(obj.GetCoreStatus(), obj.K8sObject().GetGeneration(), err)
-	if outcome == resources.ReconcilerOutcomeRecoverable {
-		return ctrl.Result{RequeueAfter: reconciler.retryInterval(obj)}, nil
-	}
-
-	return ctrl.Result{}, nil
 }
 
 func (reconciler *commonReconciler) addFinalizer(ctx context.Context, obj resources.Object) error {
@@ -539,15 +537,6 @@ func (reconciler *commonReconciler) removeFinalizer(ctx context.Context, obj res
 	}
 
 	return ctrl.Result{}, reconciler.client.Update(ctx, k8sObject)
-}
-
-func (reconciler *commonReconciler) signozClientFor(ctx context.Context, obj resources.Object, spec *resourcesv1alpha1.CoreSpec) (clients.SigNoz, error) {
-	resolved, err := reconciler.resolver.ResolveRef(ctx, spec.ProviderConfigRef, obj.K8sObject().GetNamespace(), reconciler.operatorNamespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return clients.New(resolved), nil
 }
 
 func (reconciler *commonReconciler) addCreateAttemptAnnotation(ctx context.Context, obj resources.Object) error {
@@ -579,6 +568,15 @@ func (reconciler *commonReconciler) removeCreateAttemptAnnotation(ctx context.Co
 	k8sObject.SetAnnotations(annotations)
 
 	return reconciler.client.Patch(ctx, k8sObject, patch)
+}
+
+func (reconciler *commonReconciler) signozClientFor(ctx context.Context, obj resources.Object, spec *resourcesv1alpha1.CoreSpec) (clients.SigNoz, error) {
+	resolved, err := reconciler.resolver.ResolveRef(ctx, spec.ProviderConfigRef, obj.K8sObject().GetNamespace(), reconciler.operatorNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return clients.New(resolved), nil
 }
 
 func (reconciler *commonReconciler) timeout(obj resources.Object) time.Duration {
@@ -613,17 +611,4 @@ func (reconciler *commonReconciler) retryInterval(obj resources.Object) time.Dur
 	}
 
 	return reconciler.defaultInterval
-}
-
-// loggerFromContext names the logger after the calling method, so log lines
-// carry their origin without hand-typed names.
-func loggerFromContext(ctx context.Context) logr.Logger {
-	name := "CommonReconciler"
-
-	if pc, _, _, ok := runtime.Caller(1); ok {
-		fn := runtime.FuncForPC(pc).Name()
-		name = name + "." + fn[strings.LastIndex(fn, ".")+1:]
-	}
-
-	return logf.FromContext(ctx).WithName(name)
 }
