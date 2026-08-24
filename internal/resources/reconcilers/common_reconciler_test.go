@@ -23,21 +23,6 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/resources/resourcestest"
 )
 
-func newTestReconciler(t *testing.T) (*commonReconciler, *providerconfigtest.MockResolver) {
-	resolver := providerconfigtest.NewMockResolver(t)
-	testReconciler := NewCommonReconciler(
-		fake.NewClientBuilder().Build(),
-		resolver,
-		resourcestest.NewMockAdapter(t),
-		2*time.Second, // interval
-		1*time.Second, // retryInterval
-		5*time.Second, // timeout
-		"operator",
-	)
-
-	return testReconciler.(*commonReconciler), resolver
-}
-
 func TestTimeout(t *testing.T) {
 	testCases := []struct {
 		name            string
@@ -185,4 +170,19 @@ func TestAddFinalizerAndSuspend(t *testing.T) {
 	fetched := &corev1.ConfigMap{}
 	require.NoError(t, reconciler.client.Get(context.Background(), client.ObjectKeyFromObject(k8sObject), fetched))
 	assert.Contains(t, fetched.Finalizers, resourcesv1alpha1.ResourceFinalizer)
+}
+
+func newTestReconciler(t *testing.T) (*commonReconciler, *providerconfigtest.MockResolver) {
+	resolver := providerconfigtest.NewMockResolver(t)
+	testReconciler := NewCommonReconciler(
+		fake.NewClientBuilder().Build(),
+		resolver,
+		resourcestest.NewMockAdapter(t),
+		2*time.Second, // interval
+		1*time.Second, // retryInterval
+		5*time.Second, // timeout
+		"operator",
+	)
+
+	return testReconciler.(*commonReconciler), resolver
 }
