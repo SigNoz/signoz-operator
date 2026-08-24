@@ -120,7 +120,8 @@ func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources
 			status,
 			generation,
 			resources.ReconcilerOutcomeTerminal,
-			resources.ReasonInvalidSpec, "could not calculate hash: "+err.Error(),
+			resources.ReasonInvalidSpec,
+			"could not calculate hash: "+err.Error(),
 		)
 		return ctrl.Result{}, nil
 	}
