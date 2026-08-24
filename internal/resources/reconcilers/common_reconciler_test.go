@@ -193,17 +193,12 @@ func TestNewObject(t *testing.T) {
 	pin := "pinned-id"
 
 	testCases := []struct {
-		name         string
-		pinnedID     string
-		candidateIDs []string
-		findErr      error
-
-		// expectedCreate arms adapter.Create; expectedAdopt arms the read-back of
-		// the adopted object, in sync with the spec. Unarmed calls fail the test,
-		// so these also assert which action the reconciler took.
-		expectedCreate bool
-		expectedAdopt  bool
-
+		name                  string
+		pinnedID              string
+		candidateIDs          []string
+		findErr               error
+		expectedCreate        bool
+		expectedAdopt         bool
 		expectedRequeueAfter  time.Duration
 		expectedReason        resources.Reason
 		expectedReady         metav1.ConditionStatus
