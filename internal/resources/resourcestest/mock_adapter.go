@@ -6,6 +6,7 @@ package resourcestest
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
@@ -258,23 +259,23 @@ func (_c *MockAdapter_Find_Call) RunAndReturn(run func(ctx context.Context, c cl
 }
 
 // Read provides a mock function for the type MockAdapter
-func (_mock *MockAdapter) Read(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *v1alpha1.SigNozResource) (map[string]any, error) {
+func (_mock *MockAdapter) Read(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *v1alpha1.SigNozResource) (json.RawMessage, error) {
 	ret := _mock.Called(ctx, c, obj, resourceMetadata)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Read")
 	}
 
-	var r0 map[string]any
+	var r0 json.RawMessage
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, clients.SigNoz, resources.Object, *v1alpha1.SigNozResource) (map[string]any, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, clients.SigNoz, resources.Object, *v1alpha1.SigNozResource) (json.RawMessage, error)); ok {
 		return returnFunc(ctx, c, obj, resourceMetadata)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, clients.SigNoz, resources.Object, *v1alpha1.SigNozResource) map[string]any); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, clients.SigNoz, resources.Object, *v1alpha1.SigNozResource) json.RawMessage); ok {
 		r0 = returnFunc(ctx, c, obj, resourceMetadata)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]any)
+			r0 = ret.Get(0).(json.RawMessage)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, clients.SigNoz, resources.Object, *v1alpha1.SigNozResource) error); ok {
@@ -327,12 +328,12 @@ func (_c *MockAdapter_Read_Call) Run(run func(ctx context.Context, c clients.Sig
 	return _c
 }
 
-func (_c *MockAdapter_Read_Call) Return(stringToAnyMoqParam map[string]any, err error) *MockAdapter_Read_Call {
-	_c.Call.Return(stringToAnyMoqParam, err)
+func (_c *MockAdapter_Read_Call) Return(rawMessage json.RawMessage, err error) *MockAdapter_Read_Call {
+	_c.Call.Return(rawMessage, err)
 	return _c
 }
 
-func (_c *MockAdapter_Read_Call) RunAndReturn(run func(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *v1alpha1.SigNozResource) (map[string]any, error)) *MockAdapter_Read_Call {
+func (_c *MockAdapter_Read_Call) RunAndReturn(run func(ctx context.Context, c clients.SigNoz, obj resources.Object, resourceMetadata *v1alpha1.SigNozResource) (json.RawMessage, error)) *MockAdapter_Read_Call {
 	_c.Call.Return(run)
 	return _c
 }

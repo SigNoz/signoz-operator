@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/internal/clients"
 	"github.com/SigNoz/signoz-operator/internal/errors"
@@ -41,21 +43,16 @@ func (*AuthDomainAdapter) Find(ctx context.Context, c clients.SigNoz, obj resour
 		return nil, err
 	}
 
-	data, ok := result["data"]
-	if !ok {
+	data := gjson.GetBytes(result, "data")
+	if !data.Exists() {
 		return nil, fmt.Errorf("find: response carries no data")
-	}
-
-	raw, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
 	}
 
 	var domains []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := json.Unmarshal(raw, &domains); err != nil {
+	if err := json.Unmarshal([]byte(data.Raw), &domains); err != nil {
 		return nil, fmt.Errorf("find: could not parse auth domain list: %w", err)
 	}
 

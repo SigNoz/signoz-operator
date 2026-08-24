@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/tidwall/gjson"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/internal/jsonbody"
 	"github.com/SigNoz/signoz-operator/internal/resources"
 )
 
@@ -39,7 +39,7 @@ func (a *AuthDomainObject) GetCoreStatus() *v1alpha1.CoreStatus {
 }
 
 func (a *AuthDomainObject) Body() (json.RawMessage, error) {
-	return renderTemplate(a.AuthDomain.Spec.ObjectTemplate.Spec, a.AuthDomain.Spec.ObjectTemplate.JSONSpec)
+	return jsonbody.Render(a.AuthDomain.Spec.ObjectTemplate.Spec, a.AuthDomain.Spec.ObjectTemplate.JSONSpec)
 }
 
 func (a *AuthDomainObject) Identity() (string, error) {
@@ -49,12 +49,11 @@ func (a *AuthDomainObject) Identity() (string, error) {
 	case template.Spec != nil:
 		return template.Spec.Name, nil
 	case template.JSONSpec != nil:
-		var body struct {
+		body, err := jsonbody.Extract[struct {
 			Name string `json:"name"`
-		}
-
-		if err := json.Unmarshal([]byte(*template.JSONSpec), &body); err != nil {
-			return "", fmt.Errorf("objectTemplate.jsonSpec: not valid JSON: %w", err)
+		}](*template.JSONSpec)
+		if err != nil {
+			return "", fmt.Errorf("objectTemplate.jsonSpec: %w", err)
 		}
 
 		return body.Name, nil
@@ -69,7 +68,7 @@ func (a *AuthDomainObject) Hash() (string, error) {
 		return "", err
 	}
 
-	return canonicalHash(body)
+	return jsonbody.Hash(body)
 }
 
 func (a *AuthDomainObject) UpdatableFields() []string {
@@ -80,15 +79,10 @@ func (a *AuthDomainObject) ImmutableFields() []string {
 	return []string{"name"}
 }
 
-func (a *AuthDomainObject) ToSigNozResource(response map[string]any) (*v1alpha1.SigNozResource, error) {
-	raw, err := json.Marshal(response)
+func (a *AuthDomainObject) ToSigNozResource(response json.RawMessage) (*v1alpha1.SigNozResource, error) {
+	id, err := jsonbody.ExtractString(response, "data.id")
 	if err != nil {
 		return nil, err
-	}
-
-	id := gjson.GetBytes(raw, "data.id").String()
-	if id == "" {
-		return nil, errors.New("response carries no id")
 	}
 
 	return &v1alpha1.SigNozResource{ID: &id}, nil
@@ -100,62 +94,21 @@ func (a *AuthDomainObject) ToUpdate() (json.RawMessage, error) {
 		return nil, err
 	}
 
-	payload := map[string]any{}
-
-	for _, field := range a.UpdatableFields() {
-		if value := gjson.GetBytes(body, field); value.Exists() {
-			payload[field] = value.Value()
-		}
-	}
-
-	if len(payload) == 0 {
-		return nil, nil
-	}
-
-	return json.Marshal(payload)
+	return jsonbody.ExtractFields(body, a.UpdatableFields())
 }
 
-func (a *AuthDomainObject) Compare(response map[string]any) (resources.CompareResult, error) {
+func (a *AuthDomainObject) Compare(response json.RawMessage) (resources.CompareResult, error) {
 	body, err := a.Body()
 	if err != nil {
 		return resources.CompareResult{}, err
 	}
 
-	remote, err := json.Marshal(response)
-	if err != nil {
-		return resources.CompareResult{}, err
-	}
+	diff := jsonbody.DiffWithFields(body, json.RawMessage(gjson.GetBytes(response, "data").Raw), a.UpdatableFields(), a.ImmutableFields())
 
-	var drift resources.CompareResult
-
-	for _, field := range a.UpdatableFields() {
-		desired := gjson.GetBytes(body, field)
-		if !desired.Exists() {
-			continue
-		}
-
-		if !reflect.DeepEqual(desired.Value(), gjson.GetBytes(remote, "data."+field).Value()) {
-			drift.UpdatableFields = append(drift.UpdatableFields, field)
-		}
-	}
-
-	for _, field := range a.ImmutableFields() {
-		desired := gjson.GetBytes(body, field)
-		if !desired.Exists() {
-			continue
-		}
-
-		value := gjson.GetBytes(remote, "data."+field)
-		if !value.Exists() {
-			continue
-		}
-
-		if !reflect.DeepEqual(desired.Value(), value.Value()) {
-			drift.ImmutableFields = append(drift.ImmutableFields, field)
-		}
-	}
-
-	return drift, nil
+	return resources.CompareResult{
+		UpdatableFields: diff.Updatable,
+		ImmutableFields: diff.Immutable,
+	}, nil
 }
 
 func (a *AuthDomainObject) CreateMethodAndPath() (string, string) {
@@ -163,13 +116,19 @@ func (a *AuthDomainObject) CreateMethodAndPath() (string, string) {
 }
 
 func (a *AuthDomainObject) UpdateMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodPut, pathByID(authDomainCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodPut, authDomainCollectionPath + "/" + id
 }
 
 func (a *AuthDomainObject) ReadMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodGet, pathByID(authDomainCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodGet, authDomainCollectionPath + "/" + id
 }
 
 func (a *AuthDomainObject) DeleteMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodDelete, pathByID(authDomainCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodDelete, authDomainCollectionPath + "/" + id
 }

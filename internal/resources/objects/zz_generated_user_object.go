@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/tidwall/gjson"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
+	"github.com/SigNoz/signoz-operator/internal/jsonbody"
 	"github.com/SigNoz/signoz-operator/internal/resources"
 )
 
@@ -39,7 +39,7 @@ func (u *UserObject) GetCoreStatus() *v1alpha1.CoreStatus {
 }
 
 func (u *UserObject) Body() (json.RawMessage, error) {
-	return renderTemplate(u.User.Spec.ObjectTemplate.Spec, u.User.Spec.ObjectTemplate.JSONSpec)
+	return jsonbody.Render(u.User.Spec.ObjectTemplate.Spec, u.User.Spec.ObjectTemplate.JSONSpec)
 }
 
 func (u *UserObject) Identity() (string, error) {
@@ -49,12 +49,11 @@ func (u *UserObject) Identity() (string, error) {
 	case template.Spec != nil:
 		return template.Spec.Email, nil
 	case template.JSONSpec != nil:
-		var body struct {
+		body, err := jsonbody.Extract[struct {
 			Email string `json:"email"`
-		}
-
-		if err := json.Unmarshal([]byte(*template.JSONSpec), &body); err != nil {
-			return "", fmt.Errorf("objectTemplate.jsonSpec: not valid JSON: %w", err)
+		}](*template.JSONSpec)
+		if err != nil {
+			return "", fmt.Errorf("objectTemplate.jsonSpec: %w", err)
 		}
 
 		return body.Email, nil
@@ -69,7 +68,7 @@ func (u *UserObject) Hash() (string, error) {
 		return "", err
 	}
 
-	return canonicalHash(body)
+	return jsonbody.Hash(body)
 }
 
 func (u *UserObject) UpdatableFields() []string {
@@ -80,15 +79,10 @@ func (u *UserObject) ImmutableFields() []string {
 	return []string{"email"}
 }
 
-func (u *UserObject) ToSigNozResource(response map[string]any) (*v1alpha1.SigNozResource, error) {
-	raw, err := json.Marshal(response)
+func (u *UserObject) ToSigNozResource(response json.RawMessage) (*v1alpha1.SigNozResource, error) {
+	id, err := jsonbody.ExtractString(response, "data.id")
 	if err != nil {
 		return nil, err
-	}
-
-	id := gjson.GetBytes(raw, "data.id").String()
-	if id == "" {
-		return nil, errors.New("response carries no id")
 	}
 
 	return &v1alpha1.SigNozResource{ID: &id}, nil
@@ -100,62 +94,21 @@ func (u *UserObject) ToUpdate() (json.RawMessage, error) {
 		return nil, err
 	}
 
-	payload := map[string]any{}
-
-	for _, field := range u.UpdatableFields() {
-		if value := gjson.GetBytes(body, field); value.Exists() {
-			payload[field] = value.Value()
-		}
-	}
-
-	if len(payload) == 0 {
-		return nil, nil
-	}
-
-	return json.Marshal(payload)
+	return jsonbody.ExtractFields(body, u.UpdatableFields())
 }
 
-func (u *UserObject) Compare(response map[string]any) (resources.CompareResult, error) {
+func (u *UserObject) Compare(response json.RawMessage) (resources.CompareResult, error) {
 	body, err := u.Body()
 	if err != nil {
 		return resources.CompareResult{}, err
 	}
 
-	remote, err := json.Marshal(response)
-	if err != nil {
-		return resources.CompareResult{}, err
-	}
+	diff := jsonbody.DiffWithFields(body, json.RawMessage(gjson.GetBytes(response, "data").Raw), u.UpdatableFields(), u.ImmutableFields())
 
-	var drift resources.CompareResult
-
-	for _, field := range u.UpdatableFields() {
-		desired := gjson.GetBytes(body, field)
-		if !desired.Exists() {
-			continue
-		}
-
-		if !reflect.DeepEqual(desired.Value(), gjson.GetBytes(remote, "data."+field).Value()) {
-			drift.UpdatableFields = append(drift.UpdatableFields, field)
-		}
-	}
-
-	for _, field := range u.ImmutableFields() {
-		desired := gjson.GetBytes(body, field)
-		if !desired.Exists() {
-			continue
-		}
-
-		value := gjson.GetBytes(remote, "data."+field)
-		if !value.Exists() {
-			continue
-		}
-
-		if !reflect.DeepEqual(desired.Value(), value.Value()) {
-			drift.ImmutableFields = append(drift.ImmutableFields, field)
-		}
-	}
-
-	return drift, nil
+	return resources.CompareResult{
+		UpdatableFields: diff.Updatable,
+		ImmutableFields: diff.Immutable,
+	}, nil
 }
 
 func (u *UserObject) CreateMethodAndPath() (string, string) {
@@ -163,13 +116,19 @@ func (u *UserObject) CreateMethodAndPath() (string, string) {
 }
 
 func (u *UserObject) UpdateMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodPut, pathByID(userCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodPut, userCollectionPath + "/" + id
 }
 
 func (u *UserObject) ReadMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodGet, pathByID(userCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodGet, userCollectionPath + "/" + id
 }
 
 func (u *UserObject) DeleteMethodAndPath(resourceMetadata *v1alpha1.SigNozResource) (string, string) {
-	return http.MethodDelete, pathByID(userCollectionPath, resourceMetadata)
+	id, _ := v1alpha1.GetIDFromSigNozResource(resourceMetadata)
+
+	return http.MethodDelete, userCollectionPath + "/" + id
 }

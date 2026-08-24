@@ -2,6 +2,7 @@ package reconcilers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -311,7 +312,7 @@ func TestNewObject(t *testing.T) {
 			}
 
 			if testCase.expectedAdopt {
-				remote := map[string]any{}
+				remote := json.RawMessage(`{}`)
 				adapter.EXPECT().Read(mock.Anything, mock.Anything, obj, mock.Anything).Return(remote, nil)
 				obj.EXPECT().Compare(remote).Return(resources.CompareResult{}, nil)
 			}

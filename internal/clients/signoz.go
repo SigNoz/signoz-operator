@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/SigNoz/signoz-operator/internal/build"
 	"github.com/SigNoz/signoz-operator/internal/errors"
@@ -18,11 +19,13 @@ type SigNoz interface {
 	// Do sends one request as-is and returns the raw response.
 	Do(context.Context, *http.Request) (*http.Response, error)
 
-	// Exchange sends one JSON request and returns the status code and the
-	// response parsed as JSON, so a caller always works with one shape: an empty
-	// body — a 204 — is an empty map, and a non-JSON body comes back as
-	// {"response": <snippet>}. An HTTP status is never an error here.
-	Exchange(ctx context.Context, method, path string, body []byte) (int, map[string]any, error)
+	// Exchange sends one JSON request and returns the status code and the raw
+	// response body, which is always valid JSON or nil: an empty body — a 204 —
+	// is nil, a non-JSON body on an error status comes back as
+	// {"response": <snippet>}, and a non-JSON body on a success status — a
+	// proxy's login page answering 200 — is an error. An HTTP error status is
+	// never an error here.
+	Exchange(ctx context.Context, method, path string, body []byte) (int, json.RawMessage, error)
 }
 
 type client struct {
@@ -45,7 +48,14 @@ func New(resolved *providerconfig.ResolvedProviderConfigSpec) SigNoz {
 func (c *client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	req = req.Clone(ctx)
 
+	// JoinPath drops the leading slash when the endpoint has no path — an
+	// endpoint without a trailing slash — and the request line must stay
+	// origin-form.
 	target := c.resolved.Endpoint.JoinPath(req.URL.Path)
+	if !strings.HasPrefix(target.Path, "/") {
+		target.Path = "/" + target.Path
+	}
+
 	target.RawQuery = req.URL.RawQuery
 	req.URL = target
 
@@ -55,7 +65,7 @@ func (c *client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	return c.http.Do(req)
 }
 
-func (c *client) Exchange(ctx context.Context, method, path string, body []byte) (int, map[string]any, error) {
+func (c *client) Exchange(ctx context.Context, method, path string, body []byte) (int, json.RawMessage, error) {
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -82,17 +92,27 @@ func (c *client) Exchange(ctx context.Context, method, path string, body []byte)
 	}
 
 	if len(data) == 0 {
-		return resp.StatusCode, map[string]any{}, nil
+		return resp.StatusCode, nil, nil
 	}
 
-	// A non-JSON body — a proxy's error page — is wrapped rather than dropped,
-	// so classification still has something quotable.
-	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		return resp.StatusCode, map[string]any{"response": snippet(data)}, nil
+	if json.Valid(data) {
+		return resp.StatusCode, data, nil
 	}
 
-	return resp.StatusCode, result, nil
+	// A success status with a non-JSON body means something between the
+	// operator and SigNoz answered — a proxy's login or error page.
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return 0, nil, errors.Newf(errors.ReasonUnreachable, "the server returned a success status (HTTP %d) with a non-JSON body: %s", resp.StatusCode, snippet(data))
+	}
+
+	// A non-JSON body on an error status — a proxy's error page — is wrapped
+	// rather than dropped, so classification still has something quotable.
+	wrapped, err := json.Marshal(map[string]string{"response": snippet(data)})
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return resp.StatusCode, wrapped, nil
 }
 
 func snippet(body []byte) string {
