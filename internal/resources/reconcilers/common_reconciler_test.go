@@ -65,7 +65,7 @@ func TestTimeout(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			reconciler, resolver := newTestReconciler(t)
+			reconciler, resolver, _ := newTestReconciler(t)
 			reconciler.defaultTimeout = testCase.defaultTimeout
 
 			// The finalizer is already present so addFinalizer does not hit the client.
@@ -73,8 +73,8 @@ func TestTimeout(t *testing.T) {
 			// Reconcile to succeed.
 			k8sObject := &v1alpha1test.FakeObject{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test",
-					Namespace:  "default",
+					Name:       "timeout",
+					Namespace:  "timeout-ns",
 					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 				},
 				Spec: resourcesv1alpha1.CoreSpec{Timeout: testCase.specTimeout},
@@ -145,14 +145,14 @@ func TestTimeout(t *testing.T) {
 func TestAddFinalizerAndSuspend(t *testing.T) {
 	t.Parallel()
 
-	reconciler, _ := newTestReconciler(t)
+	reconciler, _, _ := newTestReconciler(t)
 
 	// The object starts without the finalizer and must exist in the client for
 	// addFinalizer's Update to succeed.
 	k8sObject := &v1alpha1test.FakeObject{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
+			Name:      "suspend",
+			Namespace: "suspend-ns",
 		},
 		Spec: resourcesv1alpha1.CoreSpec{Suspend: true},
 	}
@@ -189,19 +189,192 @@ func TestAddFinalizerAndSuspend(t *testing.T) {
 	assert.Contains(t, fetched.Finalizers, resourcesv1alpha1.ResourceFinalizer)
 }
 
-func newTestReconciler(t *testing.T) (*commonReconciler, *providerconfigtest.MockResolver) {
+func TestNewObject(t *testing.T) {
+	pin := "pinned-id"
+
+	testCases := []struct {
+		name                  string
+		pinnedID              string
+		candidateIDs          []string
+		findErr               error
+		expectedCreate        bool
+		expectedAdopt         bool
+		expectedRequeueAfter  time.Duration
+		expectedReason        resources.Reason
+		expectedReady         metav1.ConditionStatus
+		expectedSynced        metav1.ConditionStatus
+		expectedTrueCondition string // Terminal or Recoverable; empty means neither may be present
+		expectedID            string // id persisted in status; empty means none
+		expectedCreateAttempt bool
+	}{
+		{
+			name:                  "NoCandidates_Creates",
+			expectedCreate:        true,
+			expectedRequeueAfter:  2 * time.Second, // defaultInterval
+			expectedReason:        resources.ReasonCreated,
+			expectedReady:         metav1.ConditionTrue,
+			expectedSynced:        metav1.ConditionTrue,
+			expectedID:            "created-id",
+			expectedCreateAttempt: true,
+		},
+		{
+			name:                  "OneCandidate_Adopts",
+			candidateIDs:          []string{"existing-id"},
+			expectedAdopt:         true,
+			expectedRequeueAfter:  2 * time.Second, // defaultInterval
+			expectedReason:        resources.ReasonSynced,
+			expectedReady:         metav1.ConditionTrue,
+			expectedSynced:        metav1.ConditionTrue,
+			expectedID:            "existing-id",
+			expectedCreateAttempt: true,
+		},
+		{
+			name:                  "ManyCandidates_Terminal",
+			candidateIDs:          []string{"first-id", "second-id"},
+			expectedReason:        resources.ReasonAmbiguous,
+			expectedReady:         metav1.ConditionFalse,
+			expectedSynced:        metav1.ConditionFalse,
+			expectedTrueCondition: resources.ConditionTerminal.String(),
+		},
+		{
+			name:                  "PinnedIDAmongCandidates_AdoptsPinned",
+			pinnedID:              pin,
+			candidateIDs:          []string{"other-id", pin},
+			expectedAdopt:         true,
+			expectedRequeueAfter:  2 * time.Second, // defaultInterval
+			expectedReason:        resources.ReasonSynced,
+			expectedReady:         metav1.ConditionTrue,
+			expectedSynced:        metav1.ConditionTrue,
+			expectedID:            pin,
+			expectedCreateAttempt: true,
+		},
+		{
+			name:                  "PinnedIDMatchesNothing_Terminal",
+			pinnedID:              "missing-id",
+			candidateIDs:          []string{"only-id"},
+			expectedReason:        resources.ReasonSigNozResourceIDMismatch,
+			expectedReady:         metav1.ConditionFalse,
+			expectedSynced:        metav1.ConditionFalse,
+			expectedTrueCondition: resources.ConditionTerminal.String(),
+		},
+		{
+			name:                  "FindFails_Recoverable",
+			findErr:               errors.New("dial tcp: connection refused"),
+			expectedRequeueAfter:  1 * time.Second, // defaultRetryInterval
+			expectedReason:        resources.ReasonBackendUnreachable,
+			expectedReady:         metav1.ConditionUnknown,
+			expectedSynced:        metav1.ConditionUnknown,
+			expectedTrueCondition: resources.ConditionRecoverable.String(),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			reconciler, resolver, adapter := newTestReconciler(t)
+
+			// The finalizer is already present so addFinalizer does not hit the client.
+			// The object must exist in the client for the create-attempt annotation
+			// patch and the status update at the end of Reconcile to succeed.
+			k8sObject := &v1alpha1test.FakeObject{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "new-object",
+					Namespace:  "new-object-ns",
+					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
+				},
+			}
+			if testCase.pinnedID != "" {
+				k8sObject.Annotations = map[string]string{resourcesv1alpha1.AnnotationSigNozResourceID: testCase.pinnedID}
+			}
+			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
+
+			obj := resourcestest.NewMockObject(t)
+			obj.EXPECT().K8sObject().Return(k8sObject)
+			obj.EXPECT().GetCoreSpec().Return(&k8sObject.Spec)
+			obj.EXPECT().GetCoreStatus().Return(&k8sObject.Status)
+			obj.EXPECT().Identity().Return("identity", nil)
+			obj.EXPECT().Hash().Return("hash", nil)
+
+			resolver.EXPECT().ResolveRef(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&providerconfig.ResolvedProviderConfigSpec{}, nil)
+
+			candidates := make([]*resourcesv1alpha1.SigNozResource, 0, len(testCase.candidateIDs))
+			for _, id := range testCase.candidateIDs {
+				candidates = append(candidates, &resourcesv1alpha1.SigNozResource{ID: &id})
+			}
+
+			adapter.EXPECT().Find(mock.Anything, mock.Anything, obj).Return(candidates, testCase.findErr)
+
+			if testCase.expectedCreate {
+				createdID := testCase.expectedID
+				adapter.EXPECT().Create(mock.Anything, mock.Anything, obj).Return(&resourcesv1alpha1.SigNozResource{ID: &createdID}, nil)
+			}
+
+			if testCase.expectedAdopt {
+				remote := map[string]any{}
+				adapter.EXPECT().Read(mock.Anything, mock.Anything, obj, mock.Anything).Return(remote, nil)
+				obj.EXPECT().Compare(remote).Return(resources.CompareResult{}, nil)
+			}
+
+			result, err := reconciler.Reconcile(context.Background(), obj)
+			assert.NoError(t, err)
+			assert.Equal(t, ctrl.Result{RequeueAfter: testCase.expectedRequeueAfter}, result)
+
+			// Assert on the state read back from the client, not the in-memory one,
+			// so a path that forgets to persist fails here.
+			fetched := &v1alpha1test.FakeObject{}
+			require.NoError(t, reconciler.client.Get(context.Background(), client.ObjectKeyFromObject(k8sObject), fetched))
+
+			synced := meta.FindStatusCondition(fetched.Status.Conditions, resources.ConditionSynced.String())
+			if assert.NotNil(t, synced) {
+				assert.Equal(t, testCase.expectedSynced, synced.Status)
+				assert.Equal(t, testCase.expectedReason.String(), synced.Reason)
+			}
+			assert.True(t, meta.IsStatusConditionPresentAndEqual(fetched.Status.Conditions, resources.ConditionReady.String(), testCase.expectedReady))
+
+			for _, conditionType := range []string{resources.ConditionTerminal.String(), resources.ConditionRecoverable.String()} {
+				if conditionType == testCase.expectedTrueCondition {
+					assert.True(t, meta.IsStatusConditionTrue(fetched.Status.Conditions, conditionType))
+				} else {
+					assert.Nil(t, meta.FindStatusCondition(fetched.Status.Conditions, conditionType))
+				}
+			}
+
+			if testCase.expectedID != "" {
+				id, idErr := resourcesv1alpha1.GetIDFromSigNozResource(fetched.Status.SigNozResource)
+				require.NoError(t, idErr)
+				assert.Equal(t, testCase.expectedID, id)
+				assert.Equal(t, "hash", fetched.Status.ObservedHash)
+			} else {
+				assert.Nil(t, fetched.Status.SigNozResource)
+				assert.Empty(t, fetched.Status.ObservedHash)
+			}
+
+			// A bound object (created or adopted) must carry the create-attempt
+			// annotation until a later pass sees the id durably in status.
+			_, hasCreateAttempt := fetched.Annotations[resourcesv1alpha1.AnnotationCreateAttempt]
+			assert.Equal(t, testCase.expectedCreateAttempt, hasCreateAttempt)
+
+			// The status changed, so the pass must be stamped and persisted.
+			assert.False(t, fetched.Status.ReconciledAt.IsZero())
+		})
+	}
+}
+
+func newTestReconciler(t *testing.T) (*commonReconciler, *providerconfigtest.MockResolver, *resourcestest.MockAdapter) {
 	resolver := providerconfigtest.NewMockResolver(t)
+	adapter := resourcestest.NewMockAdapter(t)
 	testReconciler := NewCommonReconciler(
 		// Reconcile persists status changes, so the fake client must know FakeObject
 		// and treat it as having a status subresource.
 		fake.NewClientBuilder().WithScheme(v1alpha1test.Scheme()).WithStatusSubresource(&v1alpha1test.FakeObject{}).Build(),
 		resolver,
-		resourcestest.NewMockAdapter(t),
+		adapter,
 		2*time.Second, // interval
 		1*time.Second, // retryInterval
 		5*time.Second, // timeout
 		"operator",
 	)
 
-	return testReconciler.(*commonReconciler), resolver
+	return testReconciler.(*commonReconciler), resolver, adapter
 }

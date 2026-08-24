@@ -7,21 +7,11 @@ import (
 )
 
 const (
-	// AnnotationCreateAttempt records, before a create is issued or an adoption
-	// is recorded, that a SigNoz object may be bound to this resource without
-	// status durably naming it yet. It is cleared once status holds the id, and
-	// while present it keeps deletion resolving the object by identity instead
-	// of assuming nothing exists. It lives in metadata, not status, so it
-	// survives a restore that drops status. Its value is the RFC3339 time of the
-	// attempt. See docs/idempotency.md.
+	// AnnotationCreateAttempt records, before a create is issued or an adoption is recorded, that a SigNoz object may be bound to this resource without status durably naming it yet.
 	AnnotationCreateAttempt = "resources.signoz.io/create-attempt"
 
-	// AnnotationSigNozResourceID pins the SigNoz object this resource mirrors, by
-	// the id SigNoz assigned — the same id status.signozResource.id records. Read
-	// whenever status holds no id: the pinned object must be among the objects
-	// matching the resource's identity, and is then adopted. It names the winner
-	// when more than one object matches (Ambiguous), and it is durable, so a
-	// resource restored without status re-adopts the same object.
+	// AnnotationSigNozResourceID pins the SigNoz object this resource mirrors, by the id SigNoz assigned - the same id status.signozResource.id records.
+	// Read whenever status holds no id: the pinned object must be among the objects matching the resource's identity, and is then adopted.
 	AnnotationSigNozResourceID = "resources.signoz.io/signoz-resource-id"
 
 	// ResourceFinalizer keeps the custom resource until the operator has applied
@@ -42,9 +32,6 @@ const (
 	ReclaimOrphan ReclaimPolicy = "Orphan"
 )
 
-// CoreSpec holds the controls every mirrored resource shares, independent of
-// what the resource is. Each kind embeds it inline, so these fields sit at the
-// same path on every kind. See docs/core-spec.md.
 type CoreSpec struct {
 	// ProviderConfigRef names the SigNoz backend to write through, resolved in
 	// the resource's own namespace unless its kind is ClusterProviderConfig.
@@ -84,9 +71,6 @@ type CoreSpec struct {
 	ReclaimPolicy ReclaimPolicy `json:"reclaimPolicy,omitempty"`
 }
 
-// SigNozResource records the identity of the object this resource maps
-// to in SigNoz. It is a nested struct rather than a bare field, so a further
-// identifier can be added without a schema break. See docs/core-status.md.
 type SigNozResource struct {
 	// ID is the identifier SigNoz assigned, set once the operator has created or
 	// adopted the remote object.
@@ -94,31 +78,6 @@ type SigNozResource struct {
 	ID *string `json:"id,omitempty"`
 }
 
-// GetIDFromSigNozResource returns the recorded id; the engine only hands an
-// adapter metadata a create or lookup has filled in.
-func GetIDFromSigNozResource(resourceMetadata *SigNozResource) (string, error) {
-	if resourceMetadata == nil || resourceMetadata.ID == nil || *resourceMetadata.ID == "" {
-		return "", errors.New("signozResource carries no id")
-	}
-
-	return *resourceMetadata.ID, nil
-}
-
-func GetIDsFromSigNozResources(resourceMetadatas []*SigNozResource) []string {
-	ids := make([]string, 0, len(resourceMetadatas))
-
-	for _, resourceMetadata := range resourceMetadatas {
-		id, err := GetIDFromSigNozResource(resourceMetadata)
-		if err == nil {
-			ids = append(ids, id)
-		}
-	}
-
-	return ids
-}
-
-// CoreStatus is the observed-state counterpart of CoreSpec, embedded inline by
-// every mirrored kind. See docs/core-status.md.
 type CoreStatus struct {
 	// Conditions report the reconcile outcome. The type vocabulary is fixed and
 	// shared across kinds; per-kind detail lives in reason and message.
@@ -147,4 +106,25 @@ type CoreStatus struct {
 	// SigNoz.
 	// +optional
 	ReconciledAt metav1.Time `json:"reconciledAt,omitzero"`
+}
+
+func GetIDFromSigNozResource(resourceMetadata *SigNozResource) (string, error) {
+	if resourceMetadata == nil || resourceMetadata.ID == nil || *resourceMetadata.ID == "" {
+		return "", errors.New("signozResource carries no id")
+	}
+
+	return *resourceMetadata.ID, nil
+}
+
+func GetIDsFromSigNozResources(resourceMetadatas []*SigNozResource) []string {
+	ids := make([]string, 0, len(resourceMetadatas))
+
+	for _, resourceMetadata := range resourceMetadatas {
+		id, err := GetIDFromSigNozResource(resourceMetadata)
+		if err == nil {
+			ids = append(ids, id)
+		}
+	}
+
+	return ids
 }
