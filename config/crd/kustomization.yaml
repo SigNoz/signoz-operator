@@ -4,6 +4,7 @@
 resources:
 - bases/resources.signoz.io_providerconfigs.yaml
 - bases/resources.signoz.io_clusterproviderconfigs.yaml
+- bases/resources.signoz.io_users.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

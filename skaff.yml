@@ -1,0 +1,56 @@
+resources:
+  user:
+    identity:
+      field: email
+    create:
+      path: /api/v2/users
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v2/users/{id}
+      method: GET
+    update:
+      path: /api/v2/users/{id}
+      method: PUT
+    delete:
+      path: /api/v2/users/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - userRoles
+        - frontendBaseUrl
+  auth_domain:
+    identity:
+      field: name
+    create:
+      path: /api/v2/auth_domains
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v2/auth_domains/{id}
+      method: GET
+    update:
+      path: /api/v2/auth_domains/{id}
+      method: PUT
+    delete:
+      path: /api/v2/auth_domains/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - authNProviderInfo
