@@ -227,6 +227,7 @@ spec:
                                             - metric
                                             - log
                                             - span
+                                            - trace
                                             - resource
                                             - attribute
                                             - body
@@ -295,6 +296,7 @@ spec:
                                                 - metric
                                                 - log
                                                 - span
+                                                - trace
                                                 - resource
                                                 - attribute
                                                 - body
@@ -344,6 +346,7 @@ spec:
                                                   - metric
                                                   - log
                                                   - span
+                                                  - trace
                                                   - resource
                                                   - attribute
                                                   - body
@@ -400,6 +403,7 @@ spec:
                                                       - metric
                                                       - log
                                                       - span
+                                                      - trace
                                                       - resource
                                                       - attribute
                                                       - body
@@ -442,6 +446,7 @@ spec:
                                             - metric
                                             - log
                                             - span
+                                            - trace
                                             - resource
                                             - attribute
                                             - body
@@ -524,6 +529,7 @@ spec:
                                   - metric
                                   - log
                                   - span
+                                  - trace
                                   - resource
                                   - attribute
                                   - body

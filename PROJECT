@@ -64,4 +64,49 @@ resources:
   kind: SavedView
   path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: PlannedMaintenance
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: Role
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: RoutePolicy
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: Rule
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: ServiceAccount
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
 version: "3"

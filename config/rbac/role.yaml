@@ -51,8 +51,13 @@ rules:
   resources:
   - authdomains
   - dashboards
+  - plannedmaintenances
   - providerconfigs
+  - roles
+  - routepolicies
+  - rules
   - savedviews
+  - serviceaccounts
   - users
   verbs:
   - create
@@ -67,8 +72,13 @@ rules:
   resources:
   - authdomains/finalizers
   - dashboards/finalizers
+  - plannedmaintenances/finalizers
   - providerconfigs/finalizers
+  - roles/finalizers
+  - routepolicies/finalizers
+  - rules/finalizers
   - savedviews/finalizers
+  - serviceaccounts/finalizers
   - users/finalizers
   verbs:
   - update
@@ -77,8 +87,13 @@ rules:
   resources:
   - authdomains/status
   - dashboards/status
+  - plannedmaintenances/status
   - providerconfigs/status
+  - roles/status
+  - routepolicies/status
+  - rules/status
   - savedviews/status
+  - serviceaccounts/status
   - users/status
   verbs:
   - get

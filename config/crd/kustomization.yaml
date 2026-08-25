@@ -8,6 +8,11 @@ resources:
 - bases/resources.signoz.io_authdomains.yaml
 - bases/resources.signoz.io_dashboards.yaml
 - bases/resources.signoz.io_savedviews.yaml
+- bases/resources.signoz.io_plannedmaintenances.yaml
+- bases/resources.signoz.io_roles.yaml
+- bases/resources.signoz.io_routepolicies.yaml
+- bases/resources.signoz.io_rules.yaml
+- bases/resources.signoz.io_serviceaccounts.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

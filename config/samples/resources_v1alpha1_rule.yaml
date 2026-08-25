@@ -1,0 +1,110 @@
+apiVersion: resources.signoz.io/v1alpha1
+kind: Rule
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: rule-sample
+spec:
+  providerConfigRef:
+    name: providerconfig-sample
+  # Typed form: the API server validates these fields at apply, including the
+  # v2alpha1 requirements — a selected query, thresholds, an evaluation window
+  # and notification settings. Alert carries the rule name.
+  objectTemplate:
+    spec:
+      alert: High memory usage
+      alertType: METRIC_BASED_ALERT
+      ruleType: threshold_rule
+      schemaVersion: v2alpha1
+      description: Memory usage stayed above 90% of capacity
+      labels:
+        severity: critical
+      condition:
+        selectedQueryName: A
+        compositeQuery:
+          panelType: graph
+          queryType: builder
+          queries:
+            - type: builder_query
+              spec:
+                name: A
+                signal: metrics
+                stepInterval: 1m
+                aggregations:
+                  - metricName: system_memory_utilization
+                    timeAggregation: avg
+                    spaceAggregation: max
+                filter:
+                  expression: state = 'used'
+        thresholds:
+          kind: basic
+          spec:
+            - name: critical
+              op: above
+              matchType: at_least_once
+              target: 0.9
+      evaluation:
+        kind: rolling
+        spec:
+          evalWindow: 5m
+          frequency: 1m
+      notificationSettings:
+        renotify:
+          enabled: true
+          interval: 4h
+          alertStates:
+            - firing
+---
+apiVersion: resources.signoz.io/v1alpha1
+kind: Rule
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: rule-sample-json
+spec:
+  providerConfigRef:
+    name: providerconfig-sample
+  # jsonSpec form: the SigNoz request body, sent verbatim. Use it to import a
+  # rule exported from the SigNoz UI unchanged.
+  objectTemplate:
+    jsonSpec: |-
+      {
+        "alert": "Error log spike",
+        "alertType": "LOGS_BASED_ALERT",
+        "ruleType": "threshold_rule",
+        "schemaVersion": "v2alpha1",
+        "labels": {"severity": "warning"},
+        "condition": {
+          "selectedQueryName": "A",
+          "compositeQuery": {
+            "panelType": "graph",
+            "queryType": "builder",
+            "queries": [
+              {
+                "type": "builder_query",
+                "spec": {
+                  "name": "A",
+                  "signal": "logs",
+                  "stepInterval": "1m",
+                  "aggregations": [{"expression": "count()"}],
+                  "filter": {"expression": "severity_text = 'ERROR'"}
+                }
+              }
+            ]
+          },
+          "thresholds": {
+            "kind": "basic",
+            "spec": [{"name": "warning", "op": "above", "matchType": "at_least_once", "target": 100}]
+          }
+        },
+        "evaluation": {
+          "kind": "rolling",
+          "spec": {"evalWindow": "5m", "frequency": "1m"}
+        },
+        "notificationSettings": {
+          "groupBy": ["service.name"],
+          "usePolicy": true
+        }
+      }
