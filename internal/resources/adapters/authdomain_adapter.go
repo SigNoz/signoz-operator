@@ -3,7 +3,6 @@ package adapters
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/tidwall/gjson"
@@ -45,7 +44,7 @@ func (*AuthDomainAdapter) Find(ctx context.Context, c clients.SigNoz, obj resour
 
 	data := gjson.GetBytes(result, "data")
 	if !data.Exists() {
-		return nil, fmt.Errorf("find: response carries no data")
+		return nil, errors.New(errors.ReasonInternal, "find: response carries no data")
 	}
 
 	var domains []struct {
@@ -53,7 +52,7 @@ func (*AuthDomainAdapter) Find(ctx context.Context, c clients.SigNoz, obj resour
 		Name string `json:"name"`
 	}
 	if err := json.Unmarshal([]byte(data.Raw), &domains); err != nil {
-		return nil, fmt.Errorf("find: could not parse auth domain list: %w", err)
+		return nil, errors.Wrap(err, errors.ReasonInternal, "find: could not parse auth domain list")
 	}
 
 	var matches []*v1alpha1.SigNozResource

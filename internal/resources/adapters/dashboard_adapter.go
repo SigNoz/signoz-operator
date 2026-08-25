@@ -53,7 +53,7 @@ func (*DashboardAdapter) Find(ctx context.Context, c clients.SigNoz, obj resourc
 
 		data := gjson.GetBytes(result, "data")
 		if !data.Exists() {
-			return nil, fmt.Errorf("find: response carries no data")
+			return nil, errors.New(errors.ReasonInternal, "find: response carries no data")
 		}
 
 		var page struct {
@@ -64,7 +64,7 @@ func (*DashboardAdapter) Find(ctx context.Context, c clients.SigNoz, obj resourc
 			Total int `json:"total"`
 		}
 		if err := json.Unmarshal([]byte(data.Raw), &page); err != nil {
-			return nil, fmt.Errorf("find: could not parse dashboard list: %w", err)
+			return nil, errors.Wrap(err, errors.ReasonInternal, "find: could not parse dashboard list")
 		}
 
 		for _, dashboard := range page.Dashboards {

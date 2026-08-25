@@ -2,18 +2,28 @@ package jsonbody
 
 import (
 	"encoding/json"
-	"errors"
+
+	"github.com/SigNoz/signoz-operator/internal/errors"
 )
 
-// Render returns the bytes a two-form template encodes: the typed form
-// marshalled, jsonSpec verbatim.
 func Render[T any](spec *T, jsonSpec *string) (json.RawMessage, error) {
-	switch {
-	case spec != nil:
-		return json.Marshal(spec)
-	case jsonSpec != nil:
-		return json.RawMessage(*jsonSpec), nil
-	default:
-		return nil, errors.New("objectTemplate: exactly one of spec or jsonSpec must be set")
+	if spec != nil {
+		out, err := json.Marshal(spec)
+		if err != nil {
+			return nil, err
+		}
+
+		return out, nil
 	}
+
+	if jsonSpec != nil {
+		var value any
+		if err := json.Unmarshal([]byte(*jsonSpec), &value); err != nil {
+			return nil, err
+		}
+
+		return json.RawMessage(*jsonSpec), nil
+	}
+
+	return nil, errors.New(errors.ReasonInvalidInput, "exactly one of spec or jsonSpec must be set")
 }

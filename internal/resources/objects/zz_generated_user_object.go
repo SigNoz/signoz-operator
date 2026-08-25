@@ -4,8 +4,6 @@ package objects
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/tidwall/gjson"
@@ -43,23 +41,7 @@ func (u *UserObject) Body() (json.RawMessage, error) {
 }
 
 func (u *UserObject) Identity() (string, error) {
-	template := u.User.Spec.ObjectTemplate
-
-	switch {
-	case template.Spec != nil:
-		return template.Spec.Email, nil
-	case template.JSONSpec != nil:
-		body, err := jsonbody.Extract[struct {
-			Email string `json:"email"`
-		}](*template.JSONSpec)
-		if err != nil {
-			return "", fmt.Errorf("objectTemplate.jsonSpec: %w", err)
-		}
-
-		return body.Email, nil
-	default:
-		return "", errors.New("objectTemplate: exactly one of spec or jsonSpec must be set")
-	}
+	return jsonbody.ExtractFromSpecs(u.User.Spec.ObjectTemplate.Spec, u.User.Spec.ObjectTemplate.JSONSpec, "email")
 }
 
 func (u *UserObject) Hash() (string, error) {
@@ -103,11 +85,11 @@ func (u *UserObject) Compare(response json.RawMessage) (resources.CompareResult,
 		return resources.CompareResult{}, err
 	}
 
-	diff := jsonbody.DiffWithFields(body, json.RawMessage(gjson.GetBytes(response, "data").Raw), u.UpdatableFields(), u.ImmutableFields())
+	paths := jsonbody.Diff(gjson.ParseBytes(body).Value(), gjson.GetBytes(response, "data").Value())
 
 	return resources.CompareResult{
-		UpdatableFields: diff.Updatable,
-		ImmutableFields: diff.Immutable,
+		UpdatableFields: jsonbody.Intersect(paths, u.UpdatableFields()),
+		ImmutableFields: jsonbody.Intersect(paths, u.ImmutableFields()),
 	}, nil
 }
 

@@ -8,42 +8,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExtract(t *testing.T) {
+func TestExtractFromSpecs(t *testing.T) {
 	type identity struct {
-		Name string `json:"name"`
+		Email string `json:"email"`
 	}
 
+	jsonSpec := `{"email":"raw@example.com","extra":1}`
+
 	testCases := []struct {
-		name         string
-		raw          string
-		expectedName string
+		name          string
+		spec          *identity
+		jsonSpec      *string
+		expectedValue string
+		expectedErr   string
 	}{
 		{
-			name:         "DeclaredField_Returned",
-			raw:          `{"name":"x","extra":1}`,
-			expectedName: "x",
+			name:          "TypedForm_FieldReturned",
+			spec:          &identity{Email: "typed@example.com"},
+			expectedValue: "typed@example.com",
 		},
 		{
-			name:         "FieldAbsent_ZeroValue",
-			raw:          `{"extra":1}`,
-			expectedName: "",
+			name:          "JSONSpecForm_FieldReturned",
+			jsonSpec:      &jsonSpec,
+			expectedValue: "raw@example.com",
+		},
+		{
+			name:        "FieldEmpty_Error",
+			spec:        &identity{},
+			expectedErr: "no value at email",
+		},
+		{
+			name:        "NeitherForm_Error",
+			expectedErr: "exactly one of spec or jsonSpec must be set",
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			value, err := Extract[identity](testCase.raw)
-			require.NoError(t, err)
+			value, err := ExtractFromSpecs(testCase.spec, testCase.jsonSpec, "email")
 
-			assert.Equal(t, testCase.expectedName, value.Name)
+			if testCase.expectedErr != "" {
+				assert.ErrorContains(t, err, testCase.expectedErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, testCase.expectedValue, value)
 		})
 	}
-}
-
-func TestExtractInvalidJSON(t *testing.T) {
-	_, err := Extract[struct{}](`{"name":`)
-
-	assert.ErrorContains(t, err, "not valid JSON")
 }
 
 func TestExtractFields(t *testing.T) {

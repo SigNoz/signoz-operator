@@ -1,73 +1,47 @@
 package jsonbody
 
 import (
-	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tidwall/gjson"
 )
 
-// Equal reports whether a and b are exactly equal. Both values must come from
-// encoding/json decoding (or gjson's Value), so numbers are float64 on both
-// sides.
-func Equal(a, b any) bool {
-	return cmp.Equal(a, b)
+func Equal(x, y any) bool {
+	return cmp.Equal(x, y)
 }
 
-// Diff returns the dot-separated paths at which a and b diverge, empty when
-// they are exactly equal. A divergence at the root has path "".
-func Diff(a, b any) []string {
+func Diff(x, y any) []string {
 	var reporter pathReporter
 
-	cmp.Equal(a, b, cmp.Reporter(&reporter))
+	cmp.Equal(x, y, cmp.Reporter(&reporter))
 
 	return reporter.paths
 }
 
-// FieldDiff lists the top-level fields of a desired body whose values diverge
-// from the remote document.
-type FieldDiff struct {
-	Updatable []string
-	Immutable []string
+// Intersect returns the paths in y that overlap a path in x: equal to it, or
+// related as ancestor and descendant. The root path "" overlaps every path.
+func Intersect(x, y []string) []string {
+	var intersection []string
+
+	for _, candidate := range y {
+		for _, path := range x {
+			if overlaps(candidate, path) {
+				intersection = append(intersection, candidate)
+				break
+			}
+		}
+	}
+
+	return intersection
 }
 
-// DiffWithFields diffs desired against remote, field by field: fields desired
-// does not set are skipped, fields it sets must match exactly. Immutable
-// fields remote omits are skipped rather than flagged, so an incomplete read
-// cannot present as an immutable change.
-func DiffWithFields(desired, remote json.RawMessage, updatable, immutable []string) FieldDiff {
-	var diff FieldDiff
-
-	for _, field := range updatable {
-		value := gjson.GetBytes(desired, field)
-		if !value.Exists() {
-			continue
-		}
-
-		if !Equal(value.Value(), gjson.GetBytes(remote, field).Value()) {
-			diff.Updatable = append(diff.Updatable, field)
-		}
+func overlaps(x, y string) bool {
+	if x == y || x == "" || y == "" {
+		return true
 	}
 
-	for _, field := range immutable {
-		desiredValue := gjson.GetBytes(desired, field)
-		if !desiredValue.Exists() {
-			continue
-		}
-
-		remoteValue := gjson.GetBytes(remote, field)
-		if !remoteValue.Exists() {
-			continue
-		}
-
-		if !Equal(desiredValue.Value(), remoteValue.Value()) {
-			diff.Immutable = append(diff.Immutable, field)
-		}
-	}
-
-	return diff
+	return strings.HasPrefix(x, y+".") || strings.HasPrefix(y, x+".")
 }
 
 type pathReporter struct {
