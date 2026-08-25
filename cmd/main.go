@@ -173,6 +173,86 @@ func run(cfg *config) error {
 		return fmt.Errorf("could not create controller resources-savedview: %w", err)
 	}
 
+	if err := (&resourcescontroller.PlannedMaintenanceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewPlannedMaintenanceAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-plannedmaintenance: %w", err)
+	}
+
+	if err := (&resourcescontroller.RoleReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewRoleAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-role: %w", err)
+	}
+
+	if err := (&resourcescontroller.RoutePolicyReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewRoutePolicyAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-routepolicy: %w", err)
+	}
+
+	if err := (&resourcescontroller.RuleReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewRuleAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-rule: %w", err)
+	}
+
+	if err := (&resourcescontroller.ServiceAccountReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewServiceAccountAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-serviceaccount: %w", err)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

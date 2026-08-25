@@ -6,4 +6,9 @@ resources:
 - resources_v1alpha1_authdomain.yaml
 - resources_v1alpha1_dashboard.yaml
 - resources_v1alpha1_savedview.yaml
+- resources_v1alpha1_plannedmaintenance.yaml
+- resources_v1alpha1_role.yaml
+- resources_v1alpha1_routepolicy.yaml
+- resources_v1alpha1_rule.yaml
+- resources_v1alpha1_serviceaccount.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

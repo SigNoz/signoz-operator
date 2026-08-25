@@ -254,7 +254,7 @@ type DashboardSelectField struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -483,7 +483,7 @@ type DashboardGroupBy struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -529,7 +529,7 @@ type DashboardKey struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 

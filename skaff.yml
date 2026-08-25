@@ -96,3 +96,135 @@ resources:
     schema:
       ignores:
         - generateName
+  route_policy:
+    identity:
+      field: name
+    create:
+      path: /api/v1/route_policies
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v1/route_policies/{id}
+      method: GET
+    update:
+      path: /api/v1/route_policies/{id}
+      method: PUT
+    delete:
+      path: /api/v1/route_policies/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+  planned_maintenance:
+    identity:
+      field: name
+    create:
+      path: /api/v1/downtime_schedules
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v1/downtime_schedules/{id}
+      method: GET
+    update:
+      path: /api/v1/downtime_schedules/{id}
+      method: PUT
+    delete:
+      path: /api/v1/downtime_schedules/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+  service_account:
+    identity:
+      field: name
+    create:
+      path: /api/v1/service_accounts
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v1/service_accounts/{id}
+      method: GET
+    update:
+      path: /api/v1/service_accounts/{id}
+      method: PUT
+    delete:
+      path: /api/v1/service_accounts/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - serviceAccountRoles
+  role:
+    identity:
+      field: name
+    create:
+      path: /api/v1/roles
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v1/roles/{id}
+      method: GET
+    update:
+      path: /api/v1/roles/{id}
+      method: PUT
+    delete:
+      path: /api/v1/roles/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+  rule:
+    identity:
+      field: alert
+    create:
+      path: /api/v2/rules
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v2/rules/{id}
+      method: GET
+    update:
+      path: /api/v2/rules/{id}
+      method: PUT
+    delete:
+      path: /api/v2/rules/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - state

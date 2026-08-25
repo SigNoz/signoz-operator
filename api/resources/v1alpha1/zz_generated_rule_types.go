@@ -8,59 +8,106 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-type SavedViewObjectSpec struct {
-	// +kubebuilder:validation:Enum=v2
+type RuleObjectSpec struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Alert string `json:"alert"`
+
+	// +kubebuilder:validation:Enum=METRIC_BASED_ALERT;TRACES_BASED_ALERT;LOGS_BASED_ALERT;EXCEPTIONS_BASED_ALERT
+	// +kubebuilder:validation:Required
+	AlertType string `json:"alertType"`
+
+	// +kubebuilder:validation:Required
+	Condition RuleCondition `json:"condition"`
+
+	// +kubebuilder:validation:Required
+	Evaluation RuleEvaluation `json:"evaluation"`
+
+	// +kubebuilder:validation:Required
+	NotificationSettings RuleNotificationSettings `json:"notificationSettings"`
+
+	// +kubebuilder:validation:Enum=threshold_rule;promql_rule;anomaly_rule
+	// +kubebuilder:validation:Required
+	RuleType string `json:"ruleType"`
+
+	// +kubebuilder:validation:Enum=v2alpha1
 	// +kubebuilder:validation:Required
 	SchemaVersion string `json:"schemaVersion"`
 
-	// +kubebuilder:validation:Enum=traces;logs;metrics;meter
-	// +kubebuilder:validation:Required
-	Source string `json:"source"`
-
-	// +kubebuilder:validation:Required
-	Spec SavedViewSpecPayload `json:"spec"`
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// +optional
-	Name string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
+
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
-type SavedViewSpecPayload struct {
+type RuleCondition struct {
+	// +kubebuilder:validation:Required
+	CompositeQuery RuleCompositeQuery `json:"compositeQuery"`
+
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	DisplayName string `json:"displayName"`
+	SelectedQueryName string `json:"selectedQueryName"`
 
-	// +kubebuilder:validation:Enum=value;graph;table;list;trace
+	// +kubebuilder:validation:Required
+	Thresholds RuleThresholds `json:"thresholds"`
+
+	// +optional
+	AbsentFor int64 `json:"absentFor,omitempty"`
+
+	// +optional
+	AlertOnAbsent bool `json:"alertOnAbsent,omitempty"`
+
+	// +optional
+	Algorithm string `json:"algorithm,omitempty"`
+
+	// +optional
+	RequireMinPoints bool `json:"requireMinPoints,omitempty"`
+
+	// +optional
+	RequiredNumPoints int64 `json:"requiredNumPoints,omitempty"`
+
+	// +kubebuilder:validation:Enum=hourly;daily;weekly
+	// +optional
+	Seasonality string `json:"seasonality,omitempty"`
+}
+
+type RuleCompositeQuery struct {
+	// +kubebuilder:validation:Enum=value;table;graph
 	// +kubebuilder:validation:Required
 	PanelType string `json:"panelType"`
 
 	// +kubebuilder:validation:Required
-	Queries []SavedViewQuery `json:"queries"`
+	Queries []RuleQuery `json:"queries"`
 
-	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace
+	// +kubebuilder:validation:Enum=builder;clickhouse_sql;promql
 	// +kubebuilder:validation:Required
-	RequestType string `json:"requestType"`
+	QueryType string `json:"queryType"`
 
 	// +optional
-	Display *SavedViewDisplay `json:"display,omitempty"`
-
-	// +optional
-	SelectedFields []SavedViewSelectField `json:"selectedFields,omitempty"`
+	Unit string `json:"unit,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_query requires spec.signal"
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_ai_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_ai_query requires spec.signal"
-type SavedViewQuery struct {
+type RuleQuery struct {
 	// +kubebuilder:validation:Enum=builder_query;builder_ai_query;builder_formula;builder_trace_operator;promql;clickhouse_sql
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
 
 	// +optional
-	Spec *SavedViewQuerySpec `json:"spec,omitempty"`
+	Spec *RuleQuerySpec `json:"spec,omitempty"`
 }
 
-type SavedViewQuerySpec struct {
+type RuleQuerySpec struct {
 	// +optional
-	Aggregations []SavedViewAggregation `json:"aggregations,omitempty"`
+	Aggregations []RuleAggregation `json:"aggregations,omitempty"`
 
 	// +optional
 	Cursor string `json:"cursor,omitempty"`
@@ -72,16 +119,16 @@ type SavedViewQuerySpec struct {
 	Expression string `json:"expression,omitempty"`
 
 	// +optional
-	Filter *SavedViewFilter `json:"filter,omitempty"`
+	Filter *RuleFilter `json:"filter,omitempty"`
 
 	// +optional
-	Functions []SavedViewFunction `json:"functions,omitempty"`
+	Functions []RuleFunction `json:"functions,omitempty"`
 
 	// +optional
-	GroupBy []SavedViewGroupBy `json:"groupBy,omitempty"`
+	GroupBy []RuleGroupBy `json:"groupBy,omitempty"`
 
 	// +optional
-	Having *SavedViewHaving `json:"having,omitempty"`
+	Having *RuleHaving `json:"having,omitempty"`
 
 	// +optional
 	Legend string `json:"legend,omitempty"`
@@ -90,7 +137,7 @@ type SavedViewQuerySpec struct {
 	Limit int64 `json:"limit,omitempty"`
 
 	// +optional
-	LimitBy *SavedViewLimitBy `json:"limitBy,omitempty"`
+	LimitBy *RuleLimitBy `json:"limitBy,omitempty"`
 
 	// +optional
 	Name string `json:"name,omitempty"`
@@ -99,7 +146,7 @@ type SavedViewQuerySpec struct {
 	Offset int64 `json:"offset,omitempty"`
 
 	// +optional
-	Order []SavedViewOrder `json:"order,omitempty"`
+	Order []RuleOrder `json:"order,omitempty"`
 
 	// +optional
 	Query string `json:"query,omitempty"`
@@ -108,10 +155,10 @@ type SavedViewQuerySpec struct {
 	ReturnSpansFrom string `json:"returnSpansFrom,omitempty"`
 
 	// +optional
-	SecondaryAggregations []SavedViewSecondaryAggregation `json:"secondaryAggregations,omitempty"`
+	SecondaryAggregations []RuleSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
-	SelectFields []SavedViewSelectField `json:"selectFields,omitempty"`
+	SelectFields []RuleSelectField `json:"selectFields,omitempty"`
 
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
@@ -133,12 +180,12 @@ type SavedViewQuerySpec struct {
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
 }
 
-type SavedViewAggregation struct {
+type RuleAggregation struct {
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
 	// +optional
-	ComparisonSpaceAggregationParam *SavedViewComparisonSpaceAggregationParam `json:"comparisonSpaceAggregationParam,omitempty"`
+	ComparisonSpaceAggregationParam *RuleComparisonSpaceAggregationParam `json:"comparisonSpaceAggregationParam,omitempty"`
 
 	// +optional
 	Expression string `json:"expression,omitempty"`
@@ -163,7 +210,7 @@ type SavedViewAggregation struct {
 	TimeAggregation string `json:"timeAggregation,omitempty"`
 }
 
-type SavedViewComparisonSpaceAggregationParam struct {
+type RuleComparisonSpaceAggregationParam struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Operator string `json:"operator"`
@@ -172,21 +219,21 @@ type SavedViewComparisonSpaceAggregationParam struct {
 	Threshold float64 `json:"threshold"`
 }
 
-type SavedViewFilter struct {
+type RuleFilter struct {
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
-type SavedViewFunction struct {
+type RuleFunction struct {
 	// +optional
-	Args []SavedViewArg `json:"args,omitempty"`
+	Args []RuleArg `json:"args,omitempty"`
 
 	// +kubebuilder:validation:Enum=cutoffmin;cutoffmax;clampmin;clampmax;absolute;runningdiff;log2;log10;cumulativesum;ewma3;ewma5;ewma7;median3;median5;median7;timeshift;anomaly;fillzero
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
-type SavedViewArg struct {
+type RuleArg struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
@@ -195,7 +242,7 @@ type SavedViewArg struct {
 	Value *apiextensionsv1.JSON `json:"value,omitempty"`
 }
 
-type SavedViewGroupBy struct {
+type RuleGroupBy struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -219,12 +266,12 @@ type SavedViewGroupBy struct {
 	Unit string `json:"unit,omitempty"`
 }
 
-type SavedViewHaving struct {
+type RuleHaving struct {
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
-type SavedViewLimitBy struct {
+type RuleLimitBy struct {
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
@@ -232,16 +279,16 @@ type SavedViewLimitBy struct {
 	Value string `json:"value,omitempty"`
 }
 
-type SavedViewOrder struct {
+type RuleOrder struct {
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
 	// +optional
-	Key *SavedViewKey `json:"key,omitempty"`
+	Key *RuleKey `json:"key,omitempty"`
 }
 
-type SavedViewKey struct {
+type RuleKey struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -265,7 +312,7 @@ type SavedViewKey struct {
 	Unit string `json:"unit,omitempty"`
 }
 
-type SavedViewSecondaryAggregation struct {
+type RuleSecondaryAggregation struct {
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
@@ -273,23 +320,23 @@ type SavedViewSecondaryAggregation struct {
 	Expression string `json:"expression,omitempty"`
 
 	// +optional
-	GroupBy []SavedViewGroupBy `json:"groupBy,omitempty"`
+	GroupBy []RuleGroupBy `json:"groupBy,omitempty"`
 
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
 	// +optional
-	LimitBy *SavedViewSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
+	LimitBy *RuleSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
 	// +optional
-	Order []SavedViewOrder `json:"order,omitempty"`
+	Order []RuleOrder `json:"order,omitempty"`
 
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
 }
 
-type SavedViewSecondaryAggregationLimitBy struct {
+type RuleSecondaryAggregationLimitBy struct {
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
@@ -297,7 +344,7 @@ type SavedViewSecondaryAggregationLimitBy struct {
 	Value string `json:"value,omitempty"`
 }
 
-type SavedViewSelectField struct {
+type RuleSelectField struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -321,39 +368,128 @@ type SavedViewSelectField struct {
 	Unit string `json:"unit,omitempty"`
 }
 
-type SavedViewDisplay struct {
-	// +optional
-	Color string `json:"color,omitempty"`
+type RuleThresholds struct {
+	// +kubebuilder:validation:Enum=basic
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec []RuleThresholdsSpec `json:"spec"`
+}
+
+type RuleThresholdsSpec struct {
+	// +kubebuilder:validation:Enum=at_least_once;all_the_times;on_average;in_total;last
+	// +kubebuilder:validation:Required
+	MatchType string `json:"matchType"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +kubebuilder:validation:Enum=above;below;equal;not_equal;above_or_equal;below_or_equal;outside_bounds
+	// +kubebuilder:validation:Required
+	Op string `json:"op"`
+
+	// +kubebuilder:validation:Required
+	Target float64 `json:"target"`
 
 	// +optional
-	FontSize string `json:"fontSize,omitempty"`
+	Channels []string `json:"channels,omitempty"`
 
 	// +optional
-	Format string `json:"format,omitempty"`
+	RecoveryTarget float64 `json:"recoveryTarget,omitempty"`
 
 	// +optional
-	MaxLines int64 `json:"maxLines,omitempty"`
+	TargetUnit string `json:"targetUnit,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="self.kind != 'rolling' || (has(self.spec.evalWindow) && has(self.spec.frequency))",message="kind rolling requires spec.evalWindow, spec.frequency"
+// +kubebuilder:validation:XValidation:rule="self.kind != 'cumulative' || (has(self.spec.schedule) && has(self.spec.frequency) && has(self.spec.timezone))",message="kind cumulative requires spec.schedule, spec.frequency, spec.timezone"
+type RuleEvaluation struct {
+	// +kubebuilder:validation:Enum=rolling;cumulative
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec RuleEvaluationSpec `json:"spec"`
+}
+
+type RuleEvaluationSpec struct {
+	// +optional
+	EvalWindow string `json:"evalWindow,omitempty"`
+
+	// +optional
+	Frequency string `json:"frequency,omitempty"`
+
+	// +optional
+	Schedule *RuleSchedule `json:"schedule,omitempty"`
+
+	// +optional
+	Timezone string `json:"timezone,omitempty"`
+}
+
+type RuleSchedule struct {
+	// +kubebuilder:validation:Enum=hourly;daily;weekly;monthly
+	// +kubebuilder:validation:Required
+	Type string `json:"type"`
+
+	// +optional
+	Day int64 `json:"day,omitempty"`
+
+	// +optional
+	Hour int64 `json:"hour,omitempty"`
+
+	// +optional
+	Minute int64 `json:"minute,omitempty"`
+
+	// +optional
+	Weekday int64 `json:"weekday,omitempty"`
+}
+
+type RuleNotificationSettings struct {
+	// +optional
+	GroupBy []string `json:"groupBy,omitempty"`
+
+	// +optional
+	NewGroupEvalDelay string `json:"newGroupEvalDelay,omitempty"`
+
+	// +optional
+	Renotify *RuleRenotify `json:"renotify,omitempty"`
+
+	// +optional
+	UsePolicy bool `json:"usePolicy,omitempty"`
+}
+
+type RuleRenotify struct {
+	// +optional
+	AlertStates []string `json:"alertStates,omitempty"`
+
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// +optional
+	Interval string `json:"interval,omitempty"`
 }
 
 // +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:MaxProperties=1
-type SavedViewObjectTemplate struct {
+type RuleObjectTemplate struct {
 	// +optional
-	Spec *SavedViewObjectSpec `json:"spec,omitempty"`
+	Spec *RuleObjectSpec `json:"spec,omitempty"`
 
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	JSONSpec *string `json:"jsonSpec,omitempty"`
 }
 
-type SavedViewSpec struct {
+type RuleSpec struct {
 	CoreSpec `json:",inline"`
 
 	// +kubebuilder:validation:Required
-	ObjectTemplate SavedViewObjectTemplate `json:"objectTemplate"`
+	ObjectTemplate RuleObjectTemplate `json:"objectTemplate"`
 }
 
-type SavedViewStatus struct {
+type RuleStatus struct {
 	CoreStatus `json:",inline"`
 }
 
@@ -364,30 +500,30 @@ type SavedViewStatus struct {
 // +kubebuilder:printcolumn:name="ID",type=string,JSONPath=".status.signozResource.id"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 
-type SavedView struct {
+type Rule struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
-	Spec SavedViewSpec `json:"spec"`
+	Spec RuleSpec `json:"spec"`
 
 	// +optional
-	Status SavedViewStatus `json:"status,omitzero"`
+	Status RuleStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-type SavedViewList struct {
+type RuleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []SavedView `json:"items"`
+	Items           []Rule `json:"items"`
 }
 
 func init() {
 	SchemeBuilder.Register(func(s *runtime.Scheme) error {
-		s.AddKnownTypes(SchemeGroupVersion, &SavedView{}, &SavedViewList{})
+		s.AddKnownTypes(SchemeGroupVersion, &Rule{}, &RuleList{})
 		return nil
 	})
 }
