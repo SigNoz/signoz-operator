@@ -3,7 +3,6 @@ package adapters
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -46,7 +45,7 @@ func (*UserAdapter) Find(ctx context.Context, c clients.SigNoz, obj resources.Ob
 
 	data := gjson.GetBytes(result, "data")
 	if !data.Exists() {
-		return nil, fmt.Errorf("find: response carries no data")
+		return nil, errors.New(errors.ReasonInternal, "find: response carries no data")
 	}
 
 	var users []struct {
@@ -54,7 +53,7 @@ func (*UserAdapter) Find(ctx context.Context, c clients.SigNoz, obj resources.Ob
 		Email string `json:"email"`
 	}
 	if err := json.Unmarshal([]byte(data.Raw), &users); err != nil {
-		return nil, fmt.Errorf("find: could not parse user list: %w", err)
+		return nil, errors.Wrap(err, errors.ReasonInternal, "find: could not parse user list")
 	}
 
 	var matches []*v1alpha1.SigNozResource

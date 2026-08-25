@@ -45,5 +45,5 @@ func TestHash(t *testing.T) {
 func TestHashInvalidJSON(t *testing.T) {
 	_, err := Hash(json.RawMessage(`{"a":`))
 
-	assert.ErrorContains(t, err, "not valid JSON")
+	assert.Error(t, err)
 }

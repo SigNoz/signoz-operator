@@ -3,7 +3,6 @@ package adapters
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -48,7 +47,7 @@ func (*SavedViewAdapter) Find(ctx context.Context, c clients.SigNoz, obj resourc
 
 	data := gjson.GetBytes(result, "data")
 	if !data.Exists() {
-		return nil, fmt.Errorf("find: response carries no data")
+		return nil, errors.New(errors.ReasonInternal, "find: response carries no data")
 	}
 
 	var views []struct {
@@ -56,7 +55,7 @@ func (*SavedViewAdapter) Find(ctx context.Context, c clients.SigNoz, obj resourc
 		Name string `json:"name"`
 	}
 	if err := json.Unmarshal([]byte(data.Raw), &views); err != nil {
-		return nil, fmt.Errorf("find: could not parse saved view list: %w", err)
+		return nil, errors.Wrap(err, errors.ReasonInternal, "find: could not parse saved view list")
 	}
 
 	var matches []*v1alpha1.SigNozResource

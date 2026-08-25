@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type renderSpec struct {
@@ -41,8 +40,8 @@ func TestRender(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			body, err := Render(testCase.spec, testCase.jsonSpec)
-			require.NoError(t, err)
 
+			assert.NoError(t, err)
 			assert.Equal(t, testCase.expectedBody, string(body))
 		})
 	}

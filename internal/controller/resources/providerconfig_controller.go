@@ -35,8 +35,6 @@ type ProviderConfigReconciler struct {
 // +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
-// Reconcile reports on the Ready condition whether the endpoint and credential
-// this ProviderConfig names resolved, reading references in its own namespace.
 func (r *ProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ProviderConfig{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
