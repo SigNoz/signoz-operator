@@ -50,3 +50,26 @@ jobs:
             dist/signoz-operator.yaml \
             dist/signoz-operator.crds.yaml \
             --clobber
+  charts:
+    needs: [build]
+    if: ${{ !contains(github.ref_name, '-rc.') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+    steps:
+      - name: self-checkout
+        uses: actions/checkout@v4
+      - id: token
+        name: github-token-gen
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PRIMUS_APP_ID }}
+          private-key: ${{ secrets.PRIMUS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: charts
+      - name: chart
+        env:
+          GITHUB_TOKEN: ${{ steps.token.outputs.token }}
+          GIT_USER: primus-bot[bot]
+          GIT_EMAIL: 171087277+primus-bot[bot]@users.noreply.github.com
+        run: ./hack/chart.sh "${GITHUB_REF_NAME}"
