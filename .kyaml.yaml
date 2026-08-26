@@ -1,0 +1,7 @@
+fmt:
+  exclude:
+  - ".primus/**"
+  - ".github/**"
+  - "config/crd/**"
+  - "!config/crds/**/kustomization.yaml"
+  - "config/rbac/clusterrole.generated.yaml"

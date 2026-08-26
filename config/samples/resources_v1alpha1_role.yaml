@@ -1,13 +1,11 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: Role
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: role-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply, including the
   # resource kind and type of every transaction group. A selector is either a
   # resource id or "*" for every object of that kind; the verb must be one the
@@ -17,31 +15,31 @@ spec:
       name: dashboard-reader
       description: Read every dashboard, change none
       transactionGroups:
-        - relation: read
-          objectGroup:
-            resource:
-              kind: dashboard
-              type: metaresource
-            selectors:
-              - "*"
-        - relation: list
-          objectGroup:
-            resource:
-              kind: dashboard
-              type: metaresource
-            selectors:
-              - "*"
+      - objectGroup:
+          resource:
+            kind: dashboard
+            type: metaresource
+          selectors:
+          - "*"
+        relation: read
+      - objectGroup:
+          resource:
+            kind: dashboard
+            type: metaresource
+          selectors:
+          - "*"
+        relation: list
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: Role
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: role-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim.
   objectTemplate:
     jsonSpec: |-
@@ -65,3 +63,5 @@ spec:
           }
         ]
       }
+  providerConfigRef:
+    name: providerconfig-sample

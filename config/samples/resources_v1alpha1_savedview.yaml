@@ -1,41 +1,39 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: SavedView
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: savedview-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply.
   objectTemplate:
     spec:
       name: error-logs
-      schemaVersion: v2
-      source: logs
       spec:
         displayName: Error logs
         panelType: list
-        requestType: raw
         queries:
-          - type: builder_query
-            spec:
-              name: A
-              signal: logs
-              filter:
-                expression: severity_text = 'ERROR'
+        - type: builder_query
+          spec:
+            name: A
+            filter:
+              expression: severity_text = 'ERROR'
+            signal: logs
+        requestType: raw
+      schemaVersion: v2
+      source: logs
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: SavedView
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: savedview-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim.
   objectTemplate:
     jsonSpec: |-
@@ -59,3 +57,5 @@ spec:
           ]
         }
       }
+  providerConfigRef:
+    name: providerconfig-sample

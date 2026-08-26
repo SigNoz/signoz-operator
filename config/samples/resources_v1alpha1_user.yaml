@@ -1,29 +1,27 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: User
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: user-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply.
   objectTemplate:
     spec:
-      email: alice@example.com
       displayName: Alice
+      email: alice@example.com
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: User
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: user-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim. Use it to set fields
   # the typed form omits, such as roles and the invite-email base URL.
   objectTemplate:
@@ -34,3 +32,5 @@ spec:
         "frontendBaseUrl": "https://signoz.example.com",
         "userRoles": [{"id": "role-id-here"}]
       }
+  providerConfigRef:
+    name: providerconfig-sample
