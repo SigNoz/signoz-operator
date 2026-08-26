@@ -5,7 +5,8 @@
 # The chart itself lives in SigNoz/charts and is hand written there. Only the
 # CRDs, the manager role rules and the chart version are derived from this
 # repository, and only those are rewritten here. Its README is generated from
-# the chart, so it is regenerated once the rest is in place.
+# the chart, so it is regenerated once the rest is in place -- best effort, since
+# a stale version badge is not worth holding back a release.
 #
 # Run from the root of this repository, checked out at the tag being released.
 # Needs git, gh and, for the README, the go toolchain the chart repository's
@@ -171,8 +172,14 @@ version "${WORK}/${CHART}/Chart.yaml"
 echo ">> Regenerating chart docs"
 # Through the chart repository's own target, so that the README is written the
 # way its helm-docs workflow expects. It reads the version out of Chart.yaml, so
-# it runs once everything else is synced.
-make -C "${WORK}" chart-docs CHARTS="${CHART}"
+# it runs once everything else is synced. A failure here leaves the README as it
+# was and says so on the pull request, rather than costing the release.
+stale=""
+if ! make -C "${WORK}" chart-docs CHARTS="${CHART}"; then
+  echo ">> Could not regenerate chart docs, leaving the README as it was" >&2
+  git -C "${WORK}" checkout --quiet -- "${CHART}/README.md" || true
+  stale="yes"
+fi
 
 git -C "${WORK}" config user.name "${AUTHOR}"
 git -C "${WORK}" config user.email "${EMAIL}"
@@ -188,9 +195,18 @@ git -C "${WORK}" commit --quiet -m "chore(signoz-operator): bump SigNoz Operator
 git -C "${WORK}" push --quiet origin "${BRANCH}"
 
 echo ">> Opening the pull request"
-GH_TOKEN="${TOKEN}" gh pr create --repo "${REPO}" --base "${BASE}" --head "${BRANCH}" \
-  --title "chore(signoz-operator): bump SigNoz Operator to ${VERSION}" \
-  --body "#### Chores
+body="#### Chores
 
 - Sync the CRDs and the manager role from SigNoz Operator ${VERSION}.
 - Bump the \`signoz-operator\` chart to ${VERSION#v}."
+if [[ -n "${stale}" ]]; then
+  body+="
+
+> [!NOTE]
+> The README could not be regenerated here, so its version badge may still read
+> the previous release. Run \`make chart-docs CHARTS=${CHART}\` on this branch."
+fi
+
+GH_TOKEN="${TOKEN}" gh pr create --repo "${REPO}" --base "${BASE}" --head "${BRANCH}" \
+  --title "chore(signoz-operator): bump SigNoz Operator to ${VERSION}" \
+  --body "${body}"
