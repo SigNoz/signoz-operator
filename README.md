@@ -17,7 +17,6 @@
 <p align="center">Manage SigNoz dashboards, alert rules, users and more as Kubernetes custom resources.</p>
 
 <h3 align="center">
-  <a href="docs/"><b>Design docs</b></a> &bull;
   <a href="https://signoz.io/docs/"><b>SigNoz Documentation</b></a> &bull;
   <a href="https://signoz.io/teams/"><b>SigNoz Cloud</b></a> &bull;
   <a href="https://signoz.io/slack"><b>Slack</b></a> &bull;
@@ -200,8 +199,6 @@ Every kind reports the same set of conditions, with per-kind detail in the reaso
 
 `status.signozResource.id` records the object's ID in SigNoz. `status.observedGeneration`, `status.observedHash` and `status.reconciledAt` record what was last reconciled and when.
 
-The design is documented in [`docs/`](docs/): [`core-spec.md`](docs/core-spec.md), [`core-status.md`](docs/core-status.md), [`resources.md`](docs/resources.md), [`provider-config.md`](docs/provider-config.md) and [`idempotency.md`](docs/idempotency.md).
-
 ## Configuration
 
 Every flag can also be set as an environment variable: prefix it with `SIGNOZ_OPERATOR_`, upper-case it and replace dashes with underscores, so `--log-level` becomes `SIGNOZ_OPERATOR_LOG_LEVEL`. Command-line flags take precedence over environment variables.
@@ -244,7 +241,7 @@ The operator is built against Kubernetes `v0.36` client libraries and controller
 
 ## Contributing
 
-Contributions are welcome. Open an [issue](https://github.com/SigNoz/signoz-operator/issues) or a pull request to get started, or ask in the `#contributing` channel on the [SigNoz Slack](https://signoz.io/slack).
+Contributions are welcome. Open an [issue](https://github.com/SigNoz/signoz-operator/issues) or a pull request to get started, or ask in the `#contributing` channel on the [SigNoz Slack](https://signoz.io/slack). The design docs live in [`docs/`](docs/).
 
 ## Community
 
