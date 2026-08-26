@@ -22,12 +22,11 @@ type AuthDomainReconciler struct {
 	CommonReconciler resources.Reconciler
 }
 
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=authdomains,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=authdomains/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=authdomains/finalizers,verbs=update
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=authdomains,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=authdomains/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=authdomains/finalizers,verbs=update
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 func (r *AuthDomainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	authDomain := &resourcesv1alpha1.AuthDomain{}

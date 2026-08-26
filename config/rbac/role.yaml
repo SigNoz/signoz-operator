@@ -1,101 +1,39 @@
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: manager-role
-rules:
-- apiGroups:
-  - resources.signoz.io
-  resources:
-  - clusterproviderconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - resources.signoz.io
-  resources:
-  - clusterproviderconfigs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - resources.signoz.io
-  resources:
-  - clusterproviderconfigs/status
-  verbs:
-  - get
-  - patch
-  - update
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: manager-role
-  namespace: signoz-operator-system
+  name: signoz-operator-leader-election
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 rules:
-- apiGroups:
-  - ""
-  resources:
+- resources:
   - configmaps
-  - secrets
+  apiGroups:
+  - ""
   verbs:
   - get
   - list
   - watch
-- apiGroups:
-  - resources.signoz.io
-  resources:
-  - authdomains
-  - dashboards
-  - plannedmaintenances
-  - providerconfigs
-  - roles
-  - routepolicies
-  - rules
-  - savedviews
-  - serviceaccounts
-  - users
+  - create
+  - update
+  - patch
+  - delete
+- resources:
+  - leases
+  apiGroups:
+  - coordination.k8s.io
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- resources:
+  - events
+  apiGroups:
+  - ""
   verbs:
   - create
-  - delete
-  - get
-  - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - resources.signoz.io
-  resources:
-  - authdomains/finalizers
-  - dashboards/finalizers
-  - plannedmaintenances/finalizers
-  - providerconfigs/finalizers
-  - roles/finalizers
-  - routepolicies/finalizers
-  - rules/finalizers
-  - savedviews/finalizers
-  - serviceaccounts/finalizers
-  - users/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - resources.signoz.io
-  resources:
-  - authdomains/status
-  - dashboards/status
-  - plannedmaintenances/status
-  - providerconfigs/status
-  - roles/status
-  - routepolicies/status
-  - rules/status
-  - savedviews/status
-  - serviceaccounts/status
-  - users/status
-  verbs:
-  - get
-  - patch
-  - update

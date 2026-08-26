@@ -30,10 +30,10 @@ type ProviderConfigReconciler struct {
 	CommonReconciler providerconfig.Reconciler
 }
 
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch
 
 func (r *ProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ProviderConfig{}

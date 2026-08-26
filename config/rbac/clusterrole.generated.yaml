@@ -1,0 +1,71 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: signoz-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - authdomains
+  - clusterproviderconfigs
+  - dashboards
+  - plannedmaintenances
+  - providerconfigs
+  - roles
+  - routepolicies
+  - rules
+  - savedviews
+  - serviceaccounts
+  - users
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - authdomains/finalizers
+  - clusterproviderconfigs/finalizers
+  - dashboards/finalizers
+  - plannedmaintenances/finalizers
+  - providerconfigs/finalizers
+  - roles/finalizers
+  - routepolicies/finalizers
+  - rules/finalizers
+  - savedviews/finalizers
+  - serviceaccounts/finalizers
+  - users/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - resources.signoz.io
+  resources:
+  - authdomains/status
+  - clusterproviderconfigs/status
+  - dashboards/status
+  - plannedmaintenances/status
+  - providerconfigs/status
+  - roles/status
+  - routepolicies/status
+  - rules/status
+  - savedviews/status
+  - serviceaccounts/status
+  - users/status
+  verbs:
+  - get
+  - patch
+  - update
