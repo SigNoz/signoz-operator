@@ -29,7 +29,7 @@ The SigNoz Operator manages the contents of a [SigNoz](https://signoz.io) instan
 
 The operator talks to SigNoz over HTTP, so the instance it manages does not have to run in the same cluster, or in Kubernetes at all. A single operator can manage several SigNoz instances, cloud or self-hosted; each resource selects the instance it belongs to.
 
-The operator does not deploy SigNoz itself. To run SigNoz on Kubernetes, use the [SigNoz Helm chart](https://signoz.io/docs/install/kubernetes/). This operator manages the configuration inside an existing SigNoz instance.
+The operator manages resources inside an existing SigNoz instance; to install SigNoz on Kubernetes, use the [SigNoz Helm chart](https://signoz.io/docs/install/kubernetes/).
 
 ## Features
 
