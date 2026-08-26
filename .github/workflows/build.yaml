@@ -1,0 +1,22 @@
+name: build
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
+
+jobs:
+  build:
+    uses: signoz/primus.workflows/.github/workflows/go-build.yaml@main
+    secrets: inherit
+    with:
+      PRIMUS_REF: main
+      GO_VERSION: "1.26"
+      GO_BUILD_CONTEXT: ./cmd
+      GO_BUILD_FLAGS: "-ldflags='-X github.com/SigNoz/signoz-operator/internal/build.Version=$($MAKE info-version)'"
+      DOCKER_BASE_IMAGES: '{"distroless":"gcr.io/distroless/static:latest"}'
+      DOCKER_DOCKERFILE_PATH: Dockerfile.multi-arch
+      DOCKER_MANIFEST: true
+      DOCKER_PROVIDERS: dockerhub
+      DOCKER_DOCKERHUB_TAG_LATEST: ${{ !contains(github.ref_name, '-rc.') }}
