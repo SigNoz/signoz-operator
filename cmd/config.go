@@ -8,6 +8,7 @@ import (
 
 	"github.com/SigNoz/signoz-operator/internal/instrumentation"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -153,5 +154,12 @@ func (c *config) buildLogger() error {
 	}
 
 	ctrl.SetLogger(logger)
+
+	// Leader election and the rest of client-go log through klog, which writes
+	// its own text format to stderr until a logr backend is installed.
+	// ContextualLogger hands that backend to klog.FromContext callers directly,
+	// so their key-value pairs survive instead of being flattened by klog.
+	klog.SetLoggerWithOptions(logger, klog.ContextualLogger(true))
+
 	return nil
 }
