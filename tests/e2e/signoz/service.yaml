@@ -1,0 +1,20 @@
+# Publishes the SigNoz API on the Kind node port that kind.yaml maps to the
+# host. Foundry owns the installation's own Services; this one is the test
+# suite's, and is applied and deleted with the environment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: signoz-e2e
+  namespace: signoz
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/component: signoz
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/name: signoz-signoz
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: http
+    nodePort: 30080

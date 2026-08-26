@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../../config/default
+# The base already renames the image, so this matches the name it leaves behind
+# rather than the `controller` placeholder the deployment is written with.
+images:
+- name: signoz/signoz-operator
+  newName: signoz-operator-e2e
+  newTag: latest
