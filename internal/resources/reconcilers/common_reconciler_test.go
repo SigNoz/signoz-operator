@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 
 	resourcesv1alpha1 "github.com/SigNoz/signoz-operator/api/resources/v1alpha1"
 	"github.com/SigNoz/signoz-operator/api/resources/v1alpha1/v1alpha1test"
+	internalerrors "github.com/SigNoz/signoz-operator/internal/errors"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig/providerconfigtest"
 	"github.com/SigNoz/signoz-operator/internal/resources"
@@ -263,6 +265,28 @@ func TestNewObject(t *testing.T) {
 			findErr:               errors.New("dial tcp: connection refused"),
 			expectedRequeueAfter:  1 * time.Second, // defaultRetryInterval
 			expectedReason:        resources.ReasonBackendUnreachable,
+			expectedReady:         metav1.ConditionUnknown,
+			expectedSynced:        metav1.ConditionUnknown,
+			expectedTrueCondition: resources.ConditionRecoverable.String(),
+		},
+		{
+			// The credential can be fixed without touching this resource, so a
+			// rejected one must keep retrying rather than settle on Terminal.
+			name:                  "FindUnauthorized_Recoverable",
+			findErr:               internalerrors.NewFromHTTPResponse(http.StatusUnauthorized, nil),
+			expectedRequeueAfter:  1 * time.Second, // defaultRetryInterval
+			expectedReason:        resources.ReasonUnauthorized,
+			expectedReady:         metav1.ConditionUnknown,
+			expectedSynced:        metav1.ConditionUnknown,
+			expectedTrueCondition: resources.ConditionRecoverable.String(),
+		},
+		{
+			// A missing role on the service account the key belongs to, which is
+			// granted in SigNoz and so moves nothing here for a watch to see.
+			name:                  "FindForbidden_Recoverable",
+			findErr:               internalerrors.NewFromHTTPResponse(http.StatusForbidden, nil),
+			expectedRequeueAfter:  1 * time.Second, // defaultRetryInterval
+			expectedReason:        resources.ReasonUnauthorized,
 			expectedReady:         metav1.ConditionUnknown,
 			expectedSynced:        metav1.ConditionUnknown,
 			expectedTrueCondition: resources.ConditionRecoverable.String(),

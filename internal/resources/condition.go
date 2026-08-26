@@ -78,9 +78,13 @@ func GetOutcomeAndSetConditionsOnErr(status *v1alpha1.CoreStatus, generation int
 		return ReconcilerOutcomeRecoverable
 	}
 
+	// A rejected credential is recoverable. The fix — a rotated Secret, or a role
+	// granted to the service account the key belongs to — is a change to
+	// something other than this resource, and granting the role in SigNoz moves
+	// nothing in the cluster for a watch to see, so retrying is the only way back.
 	if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
-		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeTerminal, ReasonUnauthorized, err.Error())
-		return ReconcilerOutcomeTerminal
+		SetConditionsOnOutcome(status, generation, ReconcilerOutcomeRecoverable, ReasonUnauthorized, err.Error())
+		return ReconcilerOutcomeRecoverable
 	}
 
 	SetConditionsOnOutcome(status, generation, ReconcilerOutcomeTerminal, ReasonRejected, err.Error())
