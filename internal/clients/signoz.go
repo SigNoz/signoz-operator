@@ -6,25 +6,27 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 
 	"github.com/SigNoz/signoz-operator/internal/build"
 	"github.com/SigNoz/signoz-operator/internal/errors"
 	"github.com/SigNoz/signoz-operator/internal/providerconfig"
 )
 
+// maxResponseBody caps what one response may pull into operator memory. It sits
+// far above any legitimate SigNoz payload, so only a runaway or hostile endpoint
+// reaches it.
+const maxResponseBody = 64 << 20
+
 var userAgent = "signoz-operator/" + build.Version
 
 type SigNoz interface {
-	// Do sends one request as-is and returns the raw response.
-	Do(context.Context, *http.Request) (*http.Response, error)
-
 	// Exchange sends one JSON request and returns the status code and the raw
 	// response body, which is always valid JSON or nil: an empty body — a 204 —
 	// is nil, a non-JSON body on an error status comes back as
 	// {"response": <snippet>}, and a non-JSON body on a success status — a
 	// proxy's login page answering 200 — is an error. An HTTP error status is
-	// never an error here.
+	// never an error here; a body past maxResponseBody is.
 	Exchange(ctx context.Context, method, path string, body []byte) (int, json.RawMessage, error)
 }
 
@@ -45,50 +47,44 @@ func New(resolved *providerconfig.ResolvedProviderConfigSpec) SigNoz {
 	}
 }
 
-func (c *client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
-	req = req.Clone(ctx)
-
-	// JoinPath drops the leading slash when the endpoint has no path — an
-	// endpoint without a trailing slash — and the request line must stay
-	// origin-form.
-	target := c.resolved.Endpoint.JoinPath(req.URL.Path)
-	if !strings.HasPrefix(target.Path, "/") {
-		target.Path = "/" + target.Path
+func (c *client) Exchange(ctx context.Context, method, path string, body []byte) (int, json.RawMessage, error) {
+	target, err := c.target(path)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, errors.ReasonInvalidInput, "could not build the request URL")
 	}
 
-	target.RawQuery = req.URL.RawQuery
-	req.URL = target
-
-	c.resolved.SetAuthHeader(req.Header)
-	req.Header.Set("User-Agent", userAgent)
-
-	return c.http.Do(req)
-}
-
-func (c *client) Exchange(ctx context.Context, method, path string, body []byte) (int, json.RawMessage, error) {
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, path, reader)
+	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, errors.ReasonInvalidInput, "could not build the request")
 	}
+
+	c.resolved.SetAuthHeader(req.Header)
+	req.Header.Set("User-Agent", userAgent)
 
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := c.Do(ctx, req)
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, errors.ReasonUnreachable, "could not reach SigNoz")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(resp.Body)
+	// One byte past the cap distinguishes an oversized body from one that just
+	// fills it, so nothing is truncated in silence.
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody+1))
 	if err != nil {
 		return 0, nil, errors.Wrap(err, errors.ReasonUnreachable, "could not read the response body")
+	}
+
+	if len(data) > maxResponseBody {
+		return 0, nil, errors.Newf(errors.ReasonUnreachable, "the server returned a response body over the %d byte limit", maxResponseBody)
 	}
 
 	if len(data) == 0 {
@@ -107,12 +103,26 @@ func (c *client) Exchange(ctx context.Context, method, path string, body []byte)
 
 	// A non-JSON body on an error status — a proxy's error page — is wrapped
 	// rather than dropped, so classification still has something quotable.
-	wrapped, err := json.Marshal(map[string]string{"response": snippet(data)})
-	if err != nil {
-		return 0, nil, err
-	}
+	// Marshalling a map[string]string cannot fail.
+	wrapped, _ := json.Marshal(map[string]string{"response": snippet(data)})
 
 	return resp.StatusCode, wrapped, nil
+}
+
+// target resolves path, which may carry a query string, against the endpoint.
+// Handing the result to the request as a URL string is what keeps the request
+// line origin-form: String reinstates the leading slash JoinPath drops when the
+// endpoint has no path of its own.
+func (c *client) target(path string) (string, error) {
+	ref, err := url.Parse(path)
+	if err != nil {
+		return "", err
+	}
+
+	target := c.resolved.Endpoint.JoinPath(ref.EscapedPath())
+	target.RawQuery = ref.RawQuery
+
+	return target.String(), nil
 }
 
 func snippet(body []byte) string {
