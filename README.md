@@ -169,28 +169,25 @@ The `Ready` condition summarizes the others, so `kubectl wait --for=condition=Re
 
 All kinds are in the `resources.signoz.io/v1alpha1` API group.
 
-`ProviderConfig` and its cluster-scoped variant `ClusterProviderConfig` define SigNoz backends. Every other kind mirrors one SigNoz object and selects its backend through `spec.providerConfigRef`: `Dashboard`, `Rule`, `SavedView`, `PlannedMaintenance`, `RoutePolicy`, `User`, `Role`, `ServiceAccount` and `AuthDomain`.
+| Kind | Description |
+|---|---|
+| `ProviderConfig` | A SigNoz endpoint and the credentials to authenticate to it. |
+| `ClusterProviderConfig` | The cluster-scoped variant of `ProviderConfig`. |
+| `Dashboard` | A dashboard. |
+| `Rule` | An alert rule. |
+| `SavedView` | A saved view. |
+| `PlannedMaintenance` | A downtime schedule. |
+| `RoutePolicy` | A notification route policy. |
+| `User` | A user. |
+| `Role` | A role. |
+| `ServiceAccount` | A service account. |
+| `AuthDomain` | An SSO auth domain. |
 
-The managed kinds share the same spec controls: a reconcile `interval`, `suspend`, a `reclaimPolicy`, and an `objectTemplate` that carries the SigNoz object as typed fields (`spec`) or as a raw JSON request body (`jsonSpec`). The CRDs are the schema reference; `kubectl explain dashboard.spec` prints the full documented schema of a kind.
+Every managed kind selects its backend through `spec.providerConfigRef` and shares the same spec controls: a reconcile `interval`, `suspend`, a `reclaimPolicy`, and an `objectTemplate` that carries the SigNoz object as typed fields (`spec`) or as a raw JSON request body (`jsonSpec`). The CRDs are the schema reference; `kubectl explain dashboard.spec` prints the full documented schema of a kind.
 
 ## Configuration
 
-The manager is configured through flags, and every flag can also be set as an environment variable (`--log-level` becomes `SIGNOZ_OPERATOR_LOG_LEVEL`). Run `signoz-operator --help` for the full list.
-
-## Development
-
-Development requires [Go 1.26+](https://golang.org/dl/) and SigNoz primus, which provides the shared build targets. Set `PRIMUS_HOME` to a checkout of primus.
-
-```bash
-make checks                # everything below
-make go-checks             # fmt, deps, lint, test
-make controllergen-checks  # regenerate deepcopy, CRDs and RBAC
-make kyaml-checks          # format the YAML manifests
-```
-
-The API types, CRDs and RBAC are generated. After editing anything under `api/` or any `+kubebuilder:` marker, run `make controllergen-checks` and commit the result; CI regenerates them and fails if there is a diff. Do not edit `config/crd/bases/`, `config/rbac/clusterrole.generated.yaml` or `zz_generated.*.go` by hand.
-
-The operator is built against Kubernetes `v0.36` client libraries and controller-runtime `v0.24`.
+The manager is configured through flags. Every flag can also be set as an environment variable with the `SIGNOZ_OPERATOR_` prefix: `--log-level` becomes `SIGNOZ_OPERATOR_LOG_LEVEL`. Run `signoz-operator --help` for the full list.
 
 ## Contributing
 
