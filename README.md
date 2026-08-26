@@ -140,89 +140,13 @@ The `Ready` condition summarizes the others, so `kubectl wait --for=condition=Re
 
 All kinds are in the `resources.signoz.io/v1alpha1` API group.
 
-### Backends
+`ProviderConfig` and its cluster-scoped variant `ClusterProviderConfig` define SigNoz backends. Every other kind mirrors one SigNoz object and selects its backend through `spec.providerConfigRef`: `Dashboard`, `Rule`, `SavedView`, `PlannedMaintenance`, `RoutePolicy`, `User`, `Role`, `ServiceAccount` and `AuthDomain`.
 
-| Kind | Scope | Description |
-|---|---|---|
-| `ProviderConfig` | Namespaced | A SigNoz endpoint and the credentials for it. Secret and ConfigMap references are resolved in its own namespace. |
-| `ClusterProviderConfig` | Cluster | The same spec, cluster-scoped. References are resolved in the operator's namespace, so one credential can be shared across namespaces. |
-
-A resource selects a backend with `spec.providerConfigRef`; its `kind` field picks between the two and defaults to `ProviderConfig`. There is no namespace field: a namespaced `ProviderConfig` can only be referenced from its own namespace.
-
-### Managed objects
-
-Each of these kinds mirrors one SigNoz object. The identity column is the field the operator uses to match an existing object in SigNoz instead of creating a new one.
-
-| Kind | SigNoz object | Identified by |
-|---|---|---|
-| `Dashboard` | Dashboard | `name` |
-| `Rule` | Alert rule | `alert` |
-| `SavedView` | Saved view | `name` |
-| `PlannedMaintenance` | Downtime schedule | `name` |
-| `RoutePolicy` | Notification route policy | `name` |
-| `User` | User | `email` |
-| `Role` | Role | `name` |
-| `ServiceAccount` | Service account | `name` |
-| `AuthDomain` | Auth domain (SSO) | `name` |
-
-### Shared spec
-
-Every managed kind has the same fields alongside its required `objectTemplate`:
-
-| Field | Default | Description |
-|---|---|---|
-| `providerConfigRef` | *required* | The `ProviderConfig` or `ClusterProviderConfig` to use. |
-| `interval` | `10m` | How often the resource is re-checked against SigNoz. |
-| `retryInterval` | `interval` | How soon a recoverable failure is retried. |
-| `timeout` | `30s` | Timeout for one reconcile attempt, including calls to SigNoz. |
-| `suspend` | `false` | Pause reconciliation without changing or deleting anything in SigNoz. |
-| `reclaimPolicy` | `Delete` | Whether the SigNoz object is deleted (`Delete`) or kept (`Orphan`) when the custom resource is deleted. |
-
-`objectTemplate` carries the SigNoz object in exactly one of two forms:
-
-- **`spec`**: typed fields, validated against the CRD schema by the API server at apply time.
-- **`jsonSpec`**: the SigNoz request body as a JSON string, sent as-is. Useful for applying an object exported from the SigNoz UI, or for setting fields the typed schema does not include yet.
-
-To bring an object that already exists in SigNoz under management, annotate the resource with `resources.signoz.io/signoz-resource-id: <id>`; the operator adopts that object instead of creating a new one.
-
-### Status
-
-Every kind reports the same set of conditions, with per-kind detail in the reason and message:
-
-| Condition | Meaning |
-|---|---|
-| `Ready` | Derived from the other conditions. The one users and tools should wait on. |
-| `Synced` | `True` when SigNoz matches the desired state, `False` when it cannot, `Unknown` when the operator could not tell. |
-| `Terminal` | The spec is invalid and retrying will not help. The operator stops requeueing until the spec changes. |
-| `Recoverable` | A transient failure, such as a rate limit, a server error or a connection error. Retried at `retryInterval`. |
-| `Suspended` | Reconciliation is paused by `spec.suspend`. |
-
-`status.signozResource.id` records the object's ID in SigNoz. `status.observedGeneration`, `status.observedHash` and `status.reconciledAt` record what was last reconciled and when.
+The managed kinds share the same spec controls: a reconcile `interval`, `suspend`, a `reclaimPolicy`, and an `objectTemplate` that carries the SigNoz object as typed fields (`spec`) or as a raw JSON request body (`jsonSpec`). The CRDs are the schema reference; `kubectl explain dashboard.spec` prints the full documented schema of a kind.
 
 ## Configuration
 
-Every flag can also be set as an environment variable: prefix it with `SIGNOZ_OPERATOR_`, upper-case it and replace dashes with underscores, so `--log-level` becomes `SIGNOZ_OPERATOR_LOG_LEVEL`. Command-line flags take precedence over environment variables.
-
-```
-signoz-operator [flags]
-
-Flags:
-  --operator-namespace string              Namespace the operator runs in. A ClusterProviderConfig's Secret
-                                           and ConfigMap references resolve here. Required.
-  --watch-namespaces strings               Namespaces to watch. Defaults to all namespaces.
-  --log-level string                       One of 'debug', 'info', 'error', 'panic' (default "info")
-  --leader-elect                           Enable leader election, so only one manager is active
-  --default-resources-interval duration    Reconcile cadence when a resource omits .spec.interval (default 10m0s)
-  --default-resources-retry-interval duration
-                                           Retry cadence when a resource omits .spec.retryInterval (default 1m0s)
-  --default-resources-timeout duration     Bound on one attempt when a resource omits .spec.timeout (default 30s)
-  --metrics-bind-address string            Metrics address; ":8443" for HTTPS, ":8080" for HTTP, "0" to disable (default "0")
-  --metrics-secure                         Serve metrics over HTTPS (default true)
-  --health-probe-bind-address string       Address the health and readiness probes bind to (default ":8081")
-  --enable-http2                           Enable HTTP/2 on the metrics and webhook servers
-```
-
-Run `signoz-operator --help` for the full list, including the certificate options for the metrics and webhook servers.
+The manager is configured through flags, and every flag can also be set as an environment variable (`--log-level` becomes `SIGNOZ_OPERATOR_LOG_LEVEL`). Run `signoz-operator --help` for the full list.
 
 ## Development
 
