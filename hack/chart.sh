@@ -4,9 +4,12 @@
 #
 # The chart itself lives in SigNoz/charts and is hand written there. Only the
 # CRDs, the manager role rules and the chart version are derived from this
-# repository, and only those are rewritten here.
+# repository, and only those are rewritten here. Its README is generated from
+# the chart, so it is regenerated once the rest is in place.
 #
 # Run from the root of this repository, checked out at the tag being released.
+# Needs git, gh and, for the README, the go toolchain the chart repository's
+# docs target reaches for.
 #
 # Usage: hack/chart.sh <version>
 #
@@ -74,6 +77,25 @@ crd() {
     { print }
   ' "$1"
   echo '{{- end }}'
+}
+
+##############################################################################
+# Rewrites the version and appVersion of a Chart.yaml in place and leaves the
+# rest of the file alone. yq would reindent every sequence in it.
+# Arguments:
+#   path to Chart.yaml
+##############################################################################
+version() {
+  sed -E \
+    -e "s|^version: .*|version: ${VERSION#v}|" \
+    -e "s|^appVersion: .*|appVersion: \"${VERSION}\"|" \
+    "$1" > "$1.next"
+  mv "$1.next" "$1"
+  if ! grep -qx "version: ${VERSION#v}" "$1" ||
+    ! grep -qx "appVersion: \"${VERSION}\"" "$1"; then
+    echo "could not set the version in $1" >&2
+    exit 1
+  fi
 }
 
 if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -144,7 +166,13 @@ EOF
 } > "${WORK}/${CHART}/templates/role.yaml"
 
 echo ">> Setting chart version to ${VERSION#v}"
-yq -i ".version = \"${VERSION#v}\" | .appVersion = \"${VERSION}\"" "${WORK}/${CHART}/Chart.yaml"
+version "${WORK}/${CHART}/Chart.yaml"
+
+echo ">> Regenerating chart docs"
+# Through the chart repository's own target, so that the README is written the
+# way its helm-docs workflow expects. It reads the version out of Chart.yaml, so
+# it runs once everything else is synced.
+make -C "${WORK}" chart-docs CHARTS="${CHART}"
 
 git -C "${WORK}" config user.name "${AUTHOR}"
 git -C "${WORK}" config user.email "${EMAIL}"
