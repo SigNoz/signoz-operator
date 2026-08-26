@@ -67,4 +67,9 @@ jobs:
       PRIMUS_REF: main
       GO_VERSION: "1.26"
       CONTROLLERGEN_VERSION: v0.21.0
-      CONTROLLERGEN_ARGS: 'rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases'
+      CONTROLLERGEN_ARGS: 'rbac:roleName=signoz-operator,fileName=clusterrole.generated.yaml crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases'
+  yamls:
+    uses: signoz/primus.workflows/.github/workflows/kyaml-fmt.yaml@main
+    secrets: inherit
+    with:
+      PRIMUS_REF: main

@@ -94,8 +94,7 @@ run "$SKAFF_BIN" operator adapters --config "$WT/skaff.yml" --module "$MOD" --ou
 run "$SKAFF_BIN" operator controllers --config "$WT/skaff.yml" --module "$MOD" --output "$WT/internal/controller/resources"
 
 if [ -z "${SKIP_CONTROLLERGEN:-}" ]; then
-  run make -f "$PRIMUS_MK" controllergen CONTROLLERGEN_ARGS='object paths="./..."'
-  run make -f "$PRIMUS_MK" controllergen CONTROLLERGEN_ARGS='rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases'
+  run make controllergen-checks
 fi
 
 if [ -n "${DRY_RUN:-}" ]; then
