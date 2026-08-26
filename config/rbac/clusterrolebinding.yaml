@@ -1,15 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  name: signoz-operator
   labels:
-    app.kubernetes.io/name: signoz-operator
     app.kubernetes.io/managed-by: kustomize
-  name: manager-clusterrolebinding
+    app.kubernetes.io/name: signoz-operator
 roleRef:
-  apiGroup: rbac.authorization.k8s.io
+  name: signoz-operator
   kind: ClusterRole
-  name: manager-role
+  apiGroup: rbac.authorization.k8s.io
 subjects:
-- kind: ServiceAccount
-  name: controller-manager
+- name: signoz-operator
   namespace: system
+  kind: ServiceAccount

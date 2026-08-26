@@ -1,13 +1,11 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: PlannedMaintenance
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: plannedmaintenance-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply. A recurrence
   # makes the window repeat from startTime for duration; scope is a label
   # expression that narrows which alerts the window silences, and alertIds
@@ -17,25 +15,25 @@ spec:
       name: weekly-database-maintenance
       description: Silence payment alerts during the weekly database window
       schedule:
-        timezone: UTC
-        startTime: "2026-09-06T01:00:00Z"
         recurrence:
-          repeatType: weekly
-          repeatOn:
-            - sunday
           duration: 2h
+          repeatOn:
+          - sunday
+          repeatType: weekly
+        startTime: "2026-09-06T01:00:00Z"
+        timezone: UTC
       scope: service == "payments"
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: PlannedMaintenance
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: plannedmaintenance-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim. Without a
   # recurrence the window runs once, from startTime to endTime.
   objectTemplate:
@@ -49,3 +47,5 @@ spec:
           "endTime": "2026-09-16T02:00:00Z"
         }
       }
+  providerConfigRef:
+    name: providerconfig-sample

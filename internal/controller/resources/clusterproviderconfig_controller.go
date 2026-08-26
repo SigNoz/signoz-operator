@@ -32,11 +32,8 @@ type ClusterProviderConfigReconciler struct {
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch
 
-// Reconcile reports on the Ready condition whether the endpoint and credential
-// this ClusterProviderConfig names resolved, reading references in the
-// operator's namespace.
 func (r *ClusterProviderConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	config := &resourcesv1alpha1.ClusterProviderConfig{}
 	if err := r.Get(ctx, req.NamespacedName, config); err != nil {

@@ -22,12 +22,11 @@ type RoleReconciler struct {
 	CommonReconciler resources.Reconciler
 }
 
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=roles,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=roles/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=roles/finalizers,verbs=update
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=roles/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=roles/finalizers,verbs=update
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	role := &resourcesv1alpha1.Role{}

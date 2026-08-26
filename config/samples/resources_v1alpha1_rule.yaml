@@ -1,49 +1,45 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: Rule
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: rule-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply, including the
   # v2alpha1 requirements — a selected query, thresholds, an evaluation window
   # and notification settings. Alert carries the rule name.
   objectTemplate:
     spec:
-      alert: High memory usage
-      alertType: METRIC_BASED_ALERT
-      ruleType: threshold_rule
-      schemaVersion: v2alpha1
-      description: Memory usage stayed above 90% of capacity
       labels:
         severity: critical
+      alert: High memory usage
+      alertType: METRIC_BASED_ALERT
       condition:
-        selectedQueryName: A
         compositeQuery:
           panelType: graph
-          queryType: builder
           queries:
-            - type: builder_query
-              spec:
-                name: A
-                signal: metrics
-                stepInterval: 1m
-                aggregations:
-                  - metricName: system_memory_utilization
-                    timeAggregation: avg
-                    spaceAggregation: max
-                filter:
-                  expression: state = 'used'
+          - type: builder_query
+            spec:
+              name: A
+              aggregations:
+              - metricName: system_memory_utilization
+                spaceAggregation: max
+                timeAggregation: avg
+              filter:
+                expression: state = 'used'
+              signal: metrics
+              stepInterval: 1m
+          queryType: builder
+        selectedQueryName: A
         thresholds:
           kind: basic
           spec:
-            - name: critical
-              op: above
-              matchType: at_least_once
-              target: 0.9
+          - name: critical
+            matchType: at_least_once
+            op: above
+            target: 0.9
+      description: Memory usage stayed above 90% of capacity
       evaluation:
         kind: rolling
         spec:
@@ -51,21 +47,23 @@ spec:
           frequency: 1m
       notificationSettings:
         renotify:
+          alertStates:
+          - firing
           enabled: true
           interval: 4h
-          alertStates:
-            - firing
+      ruleType: threshold_rule
+      schemaVersion: v2alpha1
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: Rule
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: rule-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim. Use it to import a
   # rule exported from the SigNoz UI unchanged.
   objectTemplate:
@@ -108,3 +106,5 @@ spec:
           "usePolicy": true
         }
       }
+  providerConfigRef:
+    name: providerconfig-sample

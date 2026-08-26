@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: signoz-operator-leader-election
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
+roleRef:
+  name: signoz-operator-leader-election
+  kind: Role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- name: signoz-operator
+  namespace: system
+  kind: ServiceAccount

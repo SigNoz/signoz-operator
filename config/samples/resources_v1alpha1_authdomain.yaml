@@ -1,41 +1,39 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: AuthDomain
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: authdomain-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply, including the
   # per-kind config requirements (saml/google/oidc).
   objectTemplate:
     spec:
       name: example.com
-      enabled: true
       config:
         kind: saml
         spec:
-          entityId: https://idp.example.com/saml/metadata
-          location: https://idp.example.com/saml/sso
           certificate: |-
             -----BEGIN CERTIFICATE-----
             MIIC...
             -----END CERTIFICATE-----
+          entityId: https://idp.example.com/saml/metadata
+          location: https://idp.example.com/saml/sso
+      enabled: true
       roleMapping:
         defaultRole: VIEWER
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: AuthDomain
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: authdomain-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim.
   objectTemplate:
     jsonSpec: |-
@@ -54,3 +52,5 @@ spec:
           "defaultRole": "VIEWER"
         }
       }
+  providerConfigRef:
+    name: providerconfig-sample

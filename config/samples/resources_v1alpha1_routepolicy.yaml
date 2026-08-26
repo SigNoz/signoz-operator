@@ -1,37 +1,35 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: RoutePolicy
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: routepolicy-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # Typed form: the API server validates these fields at apply. The expression
   # matches alert labels; channels name existing notification channels. Kind is
   # optional to the schema but SigNoz accepts only rule or policy.
   objectTemplate:
     spec:
       name: payments-oncall
-      description: Send payment service alerts to the payments on-call channel
       kind: policy
-      expression: service == "payments"
       channels:
-        - payments-slack
+      - payments-slack
+      description: Send payment service alerts to the payments on-call channel
+      expression: service == "payments"
       tags:
-        - payments
+      - payments
+  providerConfigRef:
+    name: providerconfig-sample
 ---
 apiVersion: resources.signoz.io/v1alpha1
 kind: RoutePolicy
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: routepolicy-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  providerConfigRef:
-    name: providerconfig-sample
   # jsonSpec form: the SigNoz request body, sent verbatim.
   objectTemplate:
     jsonSpec: |-
@@ -42,3 +40,5 @@ spec:
         "expression": "severity == \"critical\"",
         "channels": ["pagerduty-critical"]
       }
+  providerConfigRef:
+    name: providerconfig-sample

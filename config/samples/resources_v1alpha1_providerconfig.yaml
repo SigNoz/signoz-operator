@@ -1,13 +1,11 @@
 apiVersion: resources.signoz.io/v1alpha1
 kind: ProviderConfig
 metadata:
-  labels:
-    app.kubernetes.io/name: signoz-operator
-    app.kubernetes.io/managed-by: kustomize
   name: providerconfig-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
 spec:
-  endpoint:
-    value: https://eu.signoz.cloud
   auth:
     header:
       # name defaults to SIGNOZ-API-KEY
@@ -15,3 +13,5 @@ spec:
         secretKeyRef:
           name: signoz-api
           key: token
+  endpoint:
+    value: https://eu.signoz.cloud

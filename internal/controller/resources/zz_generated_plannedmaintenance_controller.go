@@ -22,12 +22,11 @@ type PlannedMaintenanceReconciler struct {
 	CommonReconciler resources.Reconciler
 }
 
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=plannedmaintenances,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=plannedmaintenances/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=plannedmaintenances/finalizers,verbs=update
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=plannedmaintenances,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=plannedmaintenances/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=plannedmaintenances/finalizers,verbs=update
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 func (r *PlannedMaintenanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	plannedMaintenance := &resourcesv1alpha1.PlannedMaintenance{}

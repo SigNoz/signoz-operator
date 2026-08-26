@@ -22,12 +22,11 @@ type RuleReconciler struct {
 	CommonReconciler resources.Reconciler
 }
 
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=rules,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=rules/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=rules/finalizers,verbs=update
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=rules,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=rules/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=rules/finalizers,verbs=update
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 func (r *RuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	rule := &resourcesv1alpha1.Rule{}

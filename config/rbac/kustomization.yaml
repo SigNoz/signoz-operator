@@ -1,59 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 resources:
-# All RBAC will be applied under this service account in
-# the deployment namespace. You may comment out this resource
-# if your manager will use a service account that exists at
-# runtime. Be sure to update RoleBinding and ClusterRoleBinding
-# subjects if changing service account names.
-- service_account.yaml
+- clusterrole.generated.yaml
+- clusterrolebinding.yaml
 - role.yaml
-- role_binding.yaml
-- cluster_role_binding.yaml
-- leader_election_role.yaml
-- leader_election_role_binding.yaml
-# The following RBAC configurations are used to protect
-# the metrics endpoint with authn/authz. These configurations
-# ensure that only authorized users and service accounts
-# can access the metrics endpoint. Comment the following
-# permissions if you want to disable this protection.
-# More info: https://book.kubebuilder.io/reference/metrics.html
-- metrics_auth_role.yaml
-- metrics_auth_role_binding.yaml
-- metrics_reader_role.yaml
-# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
-# default, aiding admins in cluster management. Those roles are
-# not used by the signoz-operator itself. You can comment the following lines
-# if you do not want those helpers be installed with your Project.
-- resources_serviceaccount_admin_role.yaml
-- resources_serviceaccount_editor_role.yaml
-- resources_serviceaccount_viewer_role.yaml
-- resources_rule_admin_role.yaml
-- resources_rule_editor_role.yaml
-- resources_rule_viewer_role.yaml
-- resources_routepolicy_admin_role.yaml
-- resources_routepolicy_editor_role.yaml
-- resources_routepolicy_viewer_role.yaml
-- resources_role_admin_role.yaml
-- resources_role_editor_role.yaml
-- resources_role_viewer_role.yaml
-- resources_plannedmaintenance_admin_role.yaml
-- resources_plannedmaintenance_editor_role.yaml
-- resources_plannedmaintenance_viewer_role.yaml
-- resources_savedview_admin_role.yaml
-- resources_savedview_editor_role.yaml
-- resources_savedview_viewer_role.yaml
-- resources_dashboard_admin_role.yaml
-- resources_dashboard_editor_role.yaml
-- resources_dashboard_viewer_role.yaml
-- resources_authdomain_admin_role.yaml
-- resources_authdomain_editor_role.yaml
-- resources_authdomain_viewer_role.yaml
-- resources_user_admin_role.yaml
-- resources_user_editor_role.yaml
-- resources_user_viewer_role.yaml
-- resources_clusterproviderconfig_admin_role.yaml
-- resources_clusterproviderconfig_editor_role.yaml
-- resources_clusterproviderconfig_viewer_role.yaml
-- resources_providerconfig_admin_role.yaml
-- resources_providerconfig_editor_role.yaml
-- resources_providerconfig_viewer_role.yaml
-
+- rolebinding.yaml
+- serviceaccount.yaml

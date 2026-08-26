@@ -22,12 +22,11 @@ type RoutePolicyReconciler struct {
 	CommonReconciler resources.Reconciler
 }
 
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=routepolicies,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=routepolicies/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=routepolicies/finalizers,verbs=update
-// +kubebuilder:rbac:groups=resources.signoz.io,namespace=signoz-operator-system,resources=providerconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=routepolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=routepolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=routepolicies/finalizers,verbs=update
+// +kubebuilder:rbac:groups=resources.signoz.io,resources=providerconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=resources.signoz.io,resources=clusterproviderconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",namespace=signoz-operator-system,resources=secrets;configmaps,verbs=get;list;watch
 
 func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	routePolicy := &resourcesv1alpha1.RoutePolicy{}

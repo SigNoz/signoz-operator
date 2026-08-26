@@ -1,0 +1,8 @@
+fmt:
+  exclude:
+  - ".primus/**"
+  - ".github/**"
+  # kubebuilder owns everything under config/crd, and controller-gen rewrites
+  # the generated cluster role in its own style on every run.
+  - "config/crd/**"
+  - "config/rbac/clusterrole.generated.yaml"
