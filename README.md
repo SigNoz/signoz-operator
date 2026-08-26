@@ -123,6 +123,35 @@ spec:
         variables: []
 ```
 
+`objectTemplate.spec` is typed and validated at apply time. To use a dashboard exported from the SigNoz UI unchanged, put the JSON request body under `objectTemplate.jsonSpec` instead:
+
+```yaml
+apiVersion: resources.signoz.io/v1alpha1
+kind: Dashboard
+metadata:
+  name: service-overview
+spec:
+  providerConfigRef:
+    name: prod
+  interval: 5m
+  objectTemplate:
+    jsonSpec: |
+      {
+        "name": "service-overview",
+        "schemaVersion": "v2",
+        "tags": [{"key": "team", "value": "platform"}],
+        "spec": {
+          "display": {
+            "name": "Service overview",
+            "description": "Golden signals for the demo service"
+          },
+          "panels": {},
+          "layouts": [],
+          "variables": []
+        }
+      }
+```
+
 Apply it and check the status:
 
 ```bash
