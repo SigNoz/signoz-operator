@@ -4,4 +4,4 @@ namespace: signoz-operator-system
 resources:
 - ../crd
 - ../rbac
-- ../operator
+- ../controller
