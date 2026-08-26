@@ -2,16 +2,14 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 
+	"github.com/SigNoz/signoz-operator/internal/instrumentation"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap/zapcore"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -58,6 +56,21 @@ func (c *config) RegisterFlags(cmd *cobra.Command) {
 	flags.StringVar(&c.OperatorNamespace, "operator-namespace", "", "Namespace in which the operator is running. A ClusterProviderConfig's Secret and ConfigMap references resolve here.")
 }
 
+// buildConfig validates the resolved configuration, flags and environment
+// alike, before the manager builds a client. Requiredness is not delegated to
+// cobra, which validates before the hook that reads the environment has run.
+func (c *config) buildConfig() error {
+	if err := c.buildLogger(); err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(c.OperatorNamespace) == "" {
+		return errors.New("--operator-namespace is required: a ClusterProviderConfig's Secret and ConfigMap references resolve there")
+	}
+
+	return nil
+}
+
 func (c *config) buildWebhookServerOptions() webhook.Options {
 	// if the enable-http2 flag is false (the default), http/2 should be disabled due to the HTTP/2 Stream Cancellation and
 	// Rapid Reset CVEs.
@@ -75,7 +88,7 @@ func (c *config) buildWebhookServerOptions() webhook.Options {
 	}
 
 	if len(c.WebhookCertPath) > 0 {
-		setupLog.Info("Initializing webhook certificate watcher using provided certificates", "webhook-cert-path", c.WebhookCertPath, "webhook-cert-name", c.WebhookCertName, "webhook-cert-key", c.WebhookCertKey)
+		setupLog.Info("Initializing webhook certificate watcher using provided certificates", "webhookCertPath", c.WebhookCertPath, "webhookCertName", c.WebhookCertName, "webhookCertKey", c.WebhookCertKey)
 
 		webhookServerOptions.CertDir = c.WebhookCertPath
 		webhookServerOptions.CertName = c.WebhookCertName
@@ -103,12 +116,8 @@ func (c *config) buildMetricsServerOptions() metricsserver.Options {
 		TLSOpts:       tlsOpts,
 	}
 
-	if c.MetricsSecure {
-		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
-	}
-
 	if len(c.MetricsCertPath) > 0 {
-		setupLog.Info("Initializing metrics certificate watcher using provided certificates", "metrics-cert-path", c.MetricsCertPath, "metrics-cert-name", c.MetricsCertName, "metrics-cert-key", c.MetricsCertKey)
+		setupLog.Info("Initializing metrics certificate watcher using provided certificates", "metricsCertPath", c.MetricsCertPath, "metricsCertName", c.MetricsCertName, "metricsCertKey", c.MetricsCertKey)
 
 		metricsServerOptions.CertDir = c.MetricsCertPath
 		metricsServerOptions.CertName = c.MetricsCertName
@@ -132,17 +141,17 @@ func (c *config) buildCacheOptions() cache.Options {
 	}
 
 	namespaces[c.OperatorNamespace] = cache.Config{}
-	setupLog.Info("Watching namespace(s)", "namespaces", c.WatchNamespaces, "operator-namespace", c.OperatorNamespace)
+	setupLog.Info("Watching namespace(s)", "namespaces", c.WatchNamespaces, "operatorNamespace", c.OperatorNamespace)
 
 	return cache.Options{DefaultNamespaces: namespaces}
 }
 
 func (c *config) buildLogger() error {
-	level, err := zapcore.ParseLevel(c.LogLevel)
+	logger, err := instrumentation.NewLoggerWithZap(c.LogLevel)
 	if err != nil {
-		return fmt.Errorf("--log-level %q is not a valid level: %w", c.LogLevel, err)
+		return err
 	}
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(false), zap.Level(level)))
+	ctrl.SetLogger(logger)
 	return nil
 }

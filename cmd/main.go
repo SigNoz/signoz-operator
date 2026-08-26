@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -64,12 +63,8 @@ func main() {
 }
 
 func run(cfg *config) error {
-	if err := cfg.buildLogger(); err != nil {
+	if err := cfg.buildConfig(); err != nil {
 		return err
-	}
-
-	if cfg.OperatorNamespace == "" {
-		return errors.New("--operator-namespace is required: a ClusterProviderConfig's Secret and ConfigMap references resolve there")
 	}
 
 	webhookServer := webhook.NewServer(cfg.buildWebhookServerOptions())
