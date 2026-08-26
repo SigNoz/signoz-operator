@@ -80,3 +80,6 @@ Dockerfile.cross
 
 ### Primus ###
 target/
+
+### Release artifacts ###
+dist/

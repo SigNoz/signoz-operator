@@ -6,6 +6,10 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
       - "v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     uses: signoz/primus.workflows/.github/workflows/go-build.yaml@main
@@ -20,3 +24,29 @@ jobs:
       DOCKER_MANIFEST: true
       DOCKER_PROVIDERS: dockerhub
       DOCKER_DOCKERHUB_TAG_LATEST: ${{ !contains(github.ref_name, '-rc.') }}
+  dist:
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'write'
+    steps:
+      - name: self-checkout
+        uses: actions/checkout@v4
+      - name: kustomize-cli
+        run: |
+          which kustomize
+          kustomize version
+      - name: dist
+        run: |
+          mkdir -p dist
+          (cd config/operator && kustomize edit set image controller=signoz/signoz-operator:"${GITHUB_REF_NAME}")
+          kustomize build config/default > dist/signoz-operator.yaml
+          kustomize build config/crd > dist/signoz-operator.crds.yaml
+      - name: release-upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/signoz-operator.yaml \
+            dist/signoz-operator.crds.yaml \
+            --clobber
