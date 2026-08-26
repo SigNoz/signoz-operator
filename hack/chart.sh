@@ -14,9 +14,11 @@
 #
 # Usage: hack/chart.sh <version>
 #
-#   version  release tag, e.g. v0.1.0. The chart version and appVersion are kept
-#            in lockstep with it: appVersion is the tag, version is the tag
-#            without the leading v.
+#   version  release tag, e.g. v0.1.0 or v0.1.0-rc.1. The chart version and
+#            appVersion are kept in lockstep with it: appVersion is the tag,
+#            version is the tag without the leading v. Whatever tags the build
+#            releases, the chart follows; the shape of the tag is the caller's
+#            business.
 #
 # Environment:
 #   GITHUB_TOKEN  token allowed to push to CHARTS_REPO and open pull requests on
@@ -98,11 +100,6 @@ version() {
     exit 1
   fi
 }
-
-if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "invalid version: ${VERSION}" >&2
-  exit 1
-fi
 
 WORK="$(mktemp -d)"
 readonly WORK

@@ -52,7 +52,6 @@ jobs:
             --clobber
   charts:
     needs: [build]
-    if: ${{ !contains(github.ref_name, '-rc.') }}
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
