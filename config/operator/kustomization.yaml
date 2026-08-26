@@ -3,3 +3,7 @@ kind: Kustomization
 resources:
 - namespace.yaml
 - deployment.yaml
+images:
+- name: controller
+  newName: signoz/signoz-operator
+  newTag: latest
