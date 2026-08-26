@@ -48,6 +48,12 @@ func TestExchange(t *testing.T) {
 			expectedErr: "non-JSON body",
 		},
 		{
+			name:        "JSONFollowedByTrailingContent_Error",
+			status:      http.StatusOK,
+			body:        `{"data":"ok"}<html>injected</html>`,
+			expectedErr: "non-JSON body",
+		},
+		{
 			name:         "ErrorStatusNonJSONBody_SnippetWrapped",
 			status:       http.StatusBadGateway,
 			body:         "<html>bad gateway</html>",
