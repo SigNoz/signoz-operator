@@ -39,7 +39,7 @@ jobs:
       - name: dist
         run: |
           mkdir -p dist
-          (cd config/operator && kustomize edit set image controller=signoz/signoz-operator:"${GITHUB_REF_NAME}")
+          (cd config/controller && kustomize edit set image controller=signoz/signoz-operator:"${GITHUB_REF_NAME}")
           kustomize build config/default > dist/signoz-operator.yaml
           kustomize build config/crd > dist/signoz-operator.crds.yaml
       - name: release-upload
