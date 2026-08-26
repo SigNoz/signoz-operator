@@ -1,0 +1,68 @@
+name: releaser
+
+on:
+  release:
+    types:
+      - published
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  chart:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: self-checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - id: token
+        name: github-token-gen
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PRIMUS_APP_ID }}
+          private-key: ${{ secrets.PRIMUS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: charts-checkout
+        uses: actions/checkout@v4
+        with:
+          repository: SigNoz/charts
+          token: ${{ steps.token.outputs.token }}
+          path: .charts
+      - name: chart-sync
+        run: ./hack/chart.sh .charts/charts/signoz-operator "${TAG}"
+      - name: pull-request
+        working-directory: .charts
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          branch="release/signoz-operator-${TAG#v}"
+          if git ls-remote --exit-code --heads origin "${branch}"; then
+            echo "branch ${branch} already exists, nothing to do"
+            exit 0
+          fi
+          git config user.name "primus-bot[bot]"
+          git config user.email "171087277+primus-bot[bot]@users.noreply.github.com"
+          git checkout -b "${branch}"
+          git add charts/signoz-operator
+          if git diff --cached --quiet; then
+            echo "chart is already up to date, nothing to do"
+            exit 0
+          fi
+          git commit -m "chore(signoz-operator): bump SigNoz Operator to ${TAG}"
+          git push origin "${branch}"
+          gh pr create -B main -H "${branch}" \
+            --title "chore(release): bump SigNoz Operator to ${TAG}" \
+            --body "#### Chores
+
+- Sync the CRDs and the manager role from SigNoz Operator ${TAG}.
+- Bump the SigNoz Operator chart to ${TAG#v}.
+
+Created by [Primus-Bot](https://github.com/apps/primus-bot)"
