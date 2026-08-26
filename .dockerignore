@@ -12,3 +12,8 @@
 
 # Re-include prebuilt binaries used by Dockerfile.multi-arch
 !target/**
+
+# A local vendor directory must not reach the build context: the re-includes
+# above would carry its sources without vendor/modules.txt, and the build reads
+# the module cache instead.
+vendor/**
