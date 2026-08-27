@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+- name: Question or help
+  url: https://signoz.io/slack
+  about: Ask in the SigNoz Slack.
+- name: Ideas and feedback
+  url: https://github.com/SigNoz/signoz/discussions
+  about: Discuss ideas and feedback in GitHub Discussions.
