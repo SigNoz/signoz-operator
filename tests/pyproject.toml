@@ -1,0 +1,39 @@
+[project]
+name = "signoz-operator-tests"
+version = "0.1.0"
+description = "End-to-end tests for the SigNoz Operator"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.3",
+    "pytest>=9.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["e2e"]
+python_files = ["test_*.py", "setup.py"]
+addopts = "-ra -p no:warnings --import-mode=importlib"
+log_cli = true
+log_format = "%(asctime)s [%(levelname)s] (%(filename)s:%(lineno)s) %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.ruff]
+line-length = 140
+extend-exclude = [".venv", "pours", "tmp"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "PL"]
+ignore = [
+    "PLR2004", # Assertions commonly compare HTTP and process exit codes.
+]
+
+[tool.ruff.lint.pylint]
+# A fixture is requested by name, so composing one out of several others is the
+# normal shape here rather than a signature that has grown too wide.
+max-args = 8
+max-positional-args = 8

@@ -1,0 +1,45 @@
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: kustomize
+    mode: kubernetes
+  # The env template renders `value: {{ $val }}`, so a value of "true" or
+  # "false" reaches the API server as a boolean, which a container's env value
+  # cannot hold. A patch carries an object rather than a template variable, so
+  # these two stay strings.
+  patches:
+  - operations:
+    # user.root.enabled — SigNoz provisions its org and root admin at boot and
+    # reconciles them on every restart, so the suite's login holds across a
+    # --reuse run.
+    - value:
+        name: SIGNOZ_USER_ROOT_ENABLED
+        value: "true"
+      op: add
+      path: /spec/template/spec/containers/0/env/-
+    # statsreporter.enabled — false selects the noop provider, since nothing
+    # about a throwaway cluster is worth reporting upstream.
+    - value:
+        name: SIGNOZ_STATSREPORTER_ENABLED
+        value: "false"
+      op: add
+      path: /spec/template/spec/containers/0/env/-
+    target: deployment/signoz/statefulset.yaml
+  signoz:
+    spec:
+      env:
+        SIGNOZ_USER_ROOT_EMAIL: "admin@e2e.test"
+        SIGNOZ_USER_ROOT_PASSWORD: "password123Z$"
+  telemetrystore:
+    spec:
+      config:
+        # The clickhouse-operator config Foundry ships defines an engine for
+        # query_log, and ClickHouse refuses a system table that carries both an
+        # engine and partition_by, so it never finishes loading metadata.
+        data:
+          config-0-0.yaml: |
+            query_log:
+              partition_by: null

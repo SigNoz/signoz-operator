@@ -1,0 +1,103 @@
+name: testci
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - labeled
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fmt:
+    if: |
+      (github.event_name == 'pull_request' && ! github.event.pull_request.head.repo.fork && github.event.pull_request.user.login != 'dependabot[bot]' && ! contains(github.event.pull_request.labels.*.name, 'safe-to-test')) ||
+      (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe-to-test'))
+    uses: signoz/primus.workflows/.github/workflows/py-fmt.yaml@main
+    secrets: inherit
+    with:
+      PRIMUS_REF: main
+      PYTHON_VERSION: "3.13"
+      PY_SRC: tests
+  lint:
+    if: |
+      (github.event_name == 'pull_request' && ! github.event.pull_request.head.repo.fork && github.event.pull_request.user.login != 'dependabot[bot]' && ! contains(github.event.pull_request.labels.*.name, 'safe-to-test')) ||
+      (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe-to-test'))
+    uses: signoz/primus.workflows/.github/workflows/py-lint.yaml@main
+    secrets: inherit
+    with:
+      PRIMUS_REF: main
+      PYTHON_VERSION: "3.13"
+      PY_SRC: tests
+  e2e:
+    # A run creates a Kind cluster, installs SigNoz and builds the operator
+    # image, so it is opt-in: label the pull request safe-to-e2e.
+    if: |
+      ((github.event_name == 'pull_request' && ! github.event.pull_request.head.repo.fork && github.event.pull_request.user.login != 'dependabot[bot]' && ! contains(github.event.pull_request.labels.*.name, 'safe-to-test')) ||
+      (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe-to-test'))) && contains(github.event.pull_request.labels.*.name, 'safe-to-e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: 'read'
+    env:
+      PRIMUS_HOME: .primus
+      # A Foundry release carries the SigNoz version its castings render, so this
+      # pins what the suite installs.
+      FOUNDRY_VERSION: v0.2.17
+      # kind's default node image comes from its release, so this pins the
+      # Kubernetes version the suite runs against.
+      KIND_VERSION: v0.33.0
+      KUBECTL_VERSION: v1.37.0
+    steps:
+      - name: self-checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      - id: token
+        name: github-token-gen
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PRIMUS_APP_ID }}
+          private-key: ${{ secrets.PRIMUS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: primus-checkout
+        uses: actions/checkout@v4
+        with:
+          repository: signoz/primus
+          ref: main
+          path: .primus
+          token: ${{ steps.token.outputs.token }}
+      - name: python-install
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: uv-install
+        uses: astral-sh/setup-uv@v6
+      - name: kubernetes-cli-install
+        run: |
+          curl -fsSLo ./kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          curl -fsSLo ./kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          chmod +x ./kind ./kubectl
+          sudo mv ./kind ./kubectl /usr/local/bin/
+          kind version
+          kubectl version --client
+      - name: foundryctl-install
+        run: |
+          curl -fsSL https://signoz.io/foundry.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/foundryctl" version
+      - name: test-e2e
+        run: |
+          make test-e2e
