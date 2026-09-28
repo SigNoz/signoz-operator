@@ -214,7 +214,7 @@ type DashboardFormatting struct {
 	// +optional
 	ColumnUnits map[string]string `json:"columnUnits,omitempty"`
 
-	// +kubebuilder:validation:Enum=0;1;2;3;4;full
+	// +kubebuilder:validation:Enum="0";"1";"2";"3";"4";full
 	// +optional
 	DecimalPrecision string `json:"decimalPrecision,omitempty"`
 
