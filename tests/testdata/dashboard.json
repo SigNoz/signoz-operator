@@ -1,0 +1,19 @@
+{
+  "name": "placeholder",
+  "schemaVersion": "v6",
+  "tags": [
+    {
+      "key": "owner",
+      "value": "e2e"
+    }
+  ],
+  "spec": {
+    "display": {
+      "name": "Placeholder",
+      "description": "Applied by the operator end-to-end suite"
+    },
+    "layouts": [],
+    "panels": {},
+    "variables": []
+  }
+}

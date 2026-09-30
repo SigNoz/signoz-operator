@@ -6,3 +6,8 @@ fmt:
   # the generated cluster role in its own style on every run.
   - "config/crd/**"
   - "config/rbac/clusterrole.generated.yaml"
+  # Everything the e2e suite generates or installs into: Foundry's pours, the
+  # cluster's kubeconfig, and the test suite's virtualenv.
+  - "tests/pours/**"
+  - "tests/tmp/**"
+  - "tests/.venv/**"

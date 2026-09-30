@@ -1,0 +1,12 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+nodes:
+- # SigNoz's HTTP API, published on the host so the test process can drive the
+  # same API the operator writes through. The container port is the nodePort
+  # that e2e/signoz/service.yaml pins.
+  extraPortMappings:
+  - protocol: TCP
+    hostPort: 30080
+    containerPort: 30080
+    listenAddress: "127.0.0.1"
+  role: control-plane
