@@ -13,8 +13,7 @@ The pipeline itself belongs to the **skaff-runner** skill — this skill decides
 ## Prerequisites
 
 - `PRIMUS_HOME` set — skaff and controller-gen both come from primus. If it isn't, use the [primus-setter](../primus-setter/SKILL.md) skill.
-- The signoz checkout at `../signoz` (read-only here: fetch and `git show` only, unless you are constructing a spec — see Step 1).
-- `gh` authenticated with SigNoz org access.
+- `gh` authenticated with SigNoz org access. The spec is read from `SigNoz/signoz` on GitHub; no local signoz checkout is used.
 
 ## Steps
 
@@ -30,18 +29,17 @@ git log --format='%h %s' -5 -- 'api/resources/v1alpha1/zz_generated_*_types.go' 
 ```
 
 - **Told which spec to use** (a branch, "with PR N merged", "from my branch") — follow that.
-- **Otherwise** — signoz `origin/main`, plus every still-open upstream PR the committed kinds depend on, merged in and regenerated. If none are open any more, plain `origin/main` is the target.
+- **Otherwise** — signoz `main`, plus every still-open upstream PR the committed kinds depend on, merged in and regenerated. If none are open any more, plain `main` is the target.
 
 Prepare the candidate **next to** the pinned spec, not over it, so the current pin stays available as a baseline and for restoring. The skaff-runner skill's **Prepare the spec first** section has the exact commands for each source (main, a branch, a constructed spec); write the result to `tmp/spec/openapi.next.yml`. For plain main:
 
 ```sh
-git -C ../signoz fetch --quiet origin
-git -C ../signoz show origin/main:docs/api/openapi.yml > tmp/spec/openapi.next.yml
-SPEC_SHA=$(git -C ../signoz rev-parse --short origin/main)
+SPEC_SHA=$(gh api repos/SigNoz/signoz/commits/main --jq '.sha[0:10]')
+gh api -H 'Accept: application/vnd.github.raw' "repos/SigNoz/signoz/contents/docs/api/openapi.yml?ref=$SPEC_SHA" > tmp/spec/openapi.next.yml
 echo "syncing against SigNoz/signoz@$SPEC_SHA"
 ```
 
-Always read `origin/main`, never the local `main` — the reference checkout lags it badly. Note `SPEC_SHA` and any PRs you merged in; they go in the PR body, which is the only place this provenance is recorded.
+Reading at the resolved `SPEC_SHA` rather than `main` keeps the spec and the recorded commit in step even if `main` moves between the two calls. Note `SPEC_SHA` and any PRs you merged in; they go in the PR body, which is the only place this provenance is recorded.
 
 ### 2. Confirm the baseline, then preview the drift
 

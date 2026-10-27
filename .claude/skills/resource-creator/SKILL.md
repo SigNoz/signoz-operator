@@ -31,7 +31,7 @@ Never hand-edit a `zz_generated_*` file, a CRD base, the cluster role, `PROJECT`
 
 - **Spec:** `tmp/spec/openapi.yml` (gitignored), the one file the pipeline reads. It is pinned: the committed kinds were generated from a *constructed* spec (signoz main with SigNoz/signoz#12112 merged in), so before you start, note the size and sha the pipeline prints and confirm it reproduces the committed tree (Step 2 shows how). If the new endpoint is missing from the pinned spec, the pin has to move first, and moving it re-renders the existing kinds too: do that as its own catch-up change with the **spec-syncer** skill, then add the kind on top. How to prepare a spec is in the [skaff-runner skill](../skaff-runner/SKILL.md#prepare-the-spec-first).
 - **Config:** `skaff.yml` at the repo root (you edit it in Step 1).
-- **Product code:** `~/Stash/signoz` (read only), for what the spec cannot tell you: `pkg/types/**` for shapes and valid values, `pkg/sqlmigration/**` for uniqueness constraints.
+- **Product code:** [`SigNoz/signoz`](https://github.com/SigNoz/signoz) on GitHub (read only; browse it with `gh` or a throwaway clone), for what the spec cannot tell you: `pkg/types/**` for shapes and valid values, `pkg/sqlmigration/**` for uniqueness constraints.
 - **Tools:** skaff and controller-gen come from primus (`PRIMUS_HOME`; run the **primus-setter** skill if it is unset). Scaffolding a new kind also needs `kubebuilder` on `PATH`.
 
 ## Step 0 — Read the endpoint in the spec
@@ -131,7 +131,7 @@ The pipeline also lists `!! sample is still kubebuilder's stub` for `config/samp
 1. `<kind>-sample`: the typed form, `objectTemplate.spec`, with a comment that the API server validates it at apply.
 2. `<kind>-sample-json`: the `jsonSpec` form, the request body sent verbatim, showing any field `ignores` kept out of the typed form.
 
-Both carry the `app.kubernetes.io/managed-by: kustomize` and `app.kubernetes.io/name: signoz-operator` labels and `providerConfigRef: {name: providerconfig-sample}`. Take values from the product's own types and test fixtures in `~/Stash/signoz`, not from guesses: an enum or verb the server rejects makes a sample that applies cleanly and then goes `Terminal`.
+Both carry the `app.kubernetes.io/managed-by: kustomize` and `app.kubernetes.io/name: signoz-operator` labels and `providerConfigRef: {name: providerconfig-sample}`. Take values from the product's own types and test fixtures in `SigNoz/signoz`, not from guesses: an enum or verb the server rejects makes a sample that applies cleanly and then goes `Terminal`.
 
 Check the typed sample against the generated CRD with a server-side dry run, for example on the e2e cluster:
 

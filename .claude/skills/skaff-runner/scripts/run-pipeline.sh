@@ -20,7 +20,7 @@
 #
 # The spec is a pinned input read from tmp/spec/openapi.yml. Preparing that
 # file is a deliberate step outside this script — from a signoz branch, from a
-# constructed merge, or from origin/main by default — so that everything
+# constructed merge, or from signoz main by default — so that everything
 # generated below is traceable to one file you can inspect.
 #
 # It does NOT edit skaff.yml, prepare the spec, hand-complete adapter Find
@@ -61,8 +61,7 @@ no spec at tmp/spec/openapi.yml — prepare one there first. Unless you were tol
 which branch or construction to use, the default is signoz's current main:
 
   mkdir -p tmp/spec
-  git -C ../signoz fetch --quiet origin
-  git -C ../signoz show origin/main:docs/api/openapi.yml > tmp/spec/openapi.yml
+  gh api -H 'Accept: application/vnd.github.raw' 'repos/SigNoz/signoz/contents/docs/api/openapi.yml?ref=main' > tmp/spec/openapi.yml
 MSG
   exit 2
 fi

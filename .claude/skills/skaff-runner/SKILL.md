@@ -1,7 +1,7 @@
 ---
 name: skaff-runner
 description: >-
-  Run the ENTIRE skaff operator codegen pipeline deterministically, via a bundled script — every kind declared in skaff.yml, all four generators in the required order (types → objects → adapters scaffold → controllers), then controller-gen through primus so deepcopy and the CRDs match. Use whenever you need to (re)generate the operator's per-kind files — after editing skaff.yml, bumping the OpenAPI spec, or adding a mirrored kind. Also covers preparing the pinned spec the pipeline reads from tmp/spec/openapi.yml: from a signoz branch, from a spec constructed by regenerating signoz's code, or from signoz's origin/main by default. It regenerates every declared kind, never a single one; it does not edit skaff.yml, hand-complete adapter Find logic, flesh out samples, or run the build/lint/test gate.
+  Run the ENTIRE skaff operator codegen pipeline deterministically, via a bundled script — every kind declared in skaff.yml, all four generators in the required order (types → objects → adapters scaffold → controllers), then controller-gen through primus so deepcopy and the CRDs match. Use whenever you need to (re)generate the operator's per-kind files — after editing skaff.yml, bumping the OpenAPI spec, or adding a mirrored kind. Also covers preparing the pinned spec the pipeline reads from tmp/spec/openapi.yml: from a signoz branch, from a spec constructed by regenerating signoz's code, or from signoz's main by default. It regenerates every declared kind, never a single one; it does not edit skaff.yml, hand-complete adapter Find logic, flesh out samples, or run the build/lint/test gate.
 ---
 
 # skaff operator pipeline runner
@@ -18,26 +18,30 @@ The pipeline reads exactly one file — `tmp/spec/openapi.yml` — and nothing e
 
 ```sh
 mkdir -p tmp/spec
-git -C ../signoz fetch --quiet origin
-git -C ../signoz show origin/main:docs/api/openapi.yml > tmp/spec/openapi.yml
+gh api -H 'Accept: application/vnd.github.raw' 'repos/SigNoz/signoz/contents/docs/api/openapi.yml?ref=main' > tmp/spec/openapi.yml
 ```
 
-Read `origin/main` rather than the local `main` branch — a signoz checkout kept for reference tends to sit well behind it, and generating against a stale spec silently rewrites kinds to a contract the product has already moved past.
+Always read the spec from GitHub rather than from a local signoz checkout: a checkout kept for reference tends to sit well behind `main`, and generating against a stale spec silently rewrites kinds to a contract the product has already moved past.
 
 **From a branch** that already carries the spec, it's the same read with the ref you were handed:
 
 ```sh
-git -C ../signoz show <ref>:docs/api/openapi.yml > tmp/spec/openapi.yml
+gh api -H 'Accept: application/vnd.github.raw' 'repos/SigNoz/signoz/contents/docs/api/openapi.yml?ref=<ref>' > tmp/spec/openapi.yml
 ```
 
 **Constructing one** is for when the spec you need exists on no single ref — it wants an open PR's schema changes combined with main, or a branch's committed spec lags its own handlers. signoz generates the spec from the code:
 
 ```sh
-(cd ../signoz && go run ./cmd/community generate openapi)   # writes ../signoz/docs/api/openapi.yml
-cp ../signoz/docs/api/openapi.yml tmp/spec/openapi.yml
+SIGNOZ_SRC="$(mktemp -d)"
+git clone --quiet --filter=blob:none https://github.com/SigNoz/signoz.git "$SIGNOZ_SRC"
+# arrange the tree as asked, e.g. merge an open PR into main:
+#   git -C "$SIGNOZ_SRC" fetch --quiet origin pull/<N>/head && git -C "$SIGNOZ_SRC" merge --no-edit FETCH_HEAD
+(cd "$SIGNOZ_SRC" && go run ./cmd/community generate openapi)   # writes $SIGNOZ_SRC/docs/api/openapi.yml
+cp "$SIGNOZ_SRC/docs/api/openapi.yml" tmp/spec/openapi.yml
+rm -rf "$SIGNOZ_SRC"
 ```
 
-It needs no config or database and is deterministic — re-running it on an unchanged tree rewrites the file byte-identically. Arrange the signoz tree however you were asked (merge the PR branch, check out the ref) *before* generating, and restore the checkout afterwards, since this dirties it.
+It needs no config or database and is deterministic — re-running it on an unchanged tree rewrites the file byte-identically. The clone is throwaway, so arrange it however you were asked (merge the PR branch, check out the ref) *before* generating.
 
 This is exactly how the committed `Rule` kind was produced: main with SigNoz/signoz#12112 merged in, then regenerated — which is why the spec behind it matches no ref you can name.
 
