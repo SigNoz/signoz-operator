@@ -228,3 +228,30 @@ resources:
         - updatedAt
         - updatedBy
         - state
+  notification_channel:
+    identity:
+      field: name
+    create:
+      path: /api/v2/notification_channels
+      method: POST
+      status:
+        signozResource:
+          id: data.id
+    read:
+      path: /api/v2/notification_channels/{id}
+      method: GET
+    update:
+      path: /api/v2/notification_channels/{id}
+      method: PUT
+    delete:
+      path: /api/v2/notification_channels/{id}
+      method: DELETE
+    schema:
+      ignores:
+        - data
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - generateName

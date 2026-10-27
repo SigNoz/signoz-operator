@@ -109,4 +109,13 @@ resources:
   kind: ServiceAccount
   path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: signoz.io
+  group: resources
+  kind: NotificationChannel
+  path: github.com/SigNoz/signoz-operator/api/resources/v1alpha1
+  version: v1alpha1
 version: "3"

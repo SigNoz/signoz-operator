@@ -248,6 +248,22 @@ func run(cfg *config) error {
 		return fmt.Errorf("could not create controller resources-serviceaccount: %w", err)
 	}
 
+	if err := (&resourcescontroller.NotificationChannelReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		CommonReconciler: resourcesreconcilers.NewCommonReconciler(
+			mgr.GetClient(),
+			resolver,
+			adapters.NewNotificationChannelAdapter(),
+			cfg.DefaultResourcesInterval,
+			cfg.DefaultResourcesRetryInterval,
+			cfg.DefaultResourcesTimeout,
+			cfg.OperatorNamespace,
+		),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("could not create controller resources-notificationchannel: %w", err)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

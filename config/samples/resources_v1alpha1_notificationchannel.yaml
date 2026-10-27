@@ -1,0 +1,50 @@
+apiVersion: resources.signoz.io/v1alpha1
+kind: NotificationChannel
+metadata:
+  name: notificationchannel-sample
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
+spec:
+  # Typed form: the API server validates these fields at apply, including the
+  # kind and the spec fields that kind requires. Alert rules and routing
+  # policies reference the channel by displayName.
+  objectTemplate:
+    spec:
+      name: slack-platform
+      config:
+        kind: slack
+        spec:
+          apiUrl: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+          channel: "#alerts-platform"
+          sendResolved: true
+      displayName: Slack platform
+  providerConfigRef:
+    name: providerconfig-sample
+---
+apiVersion: resources.signoz.io/v1alpha1
+kind: NotificationChannel
+metadata:
+  name: notificationchannel-sample-json
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: signoz-operator
+spec:
+  # jsonSpec form: the SigNoz request body, sent verbatim, such as one copied
+  # from the SigNoz API.
+  objectTemplate:
+    jsonSpec: |-
+      {
+        "name": "webhook-incident-bot",
+        "displayName": "Incident bot webhook",
+        "config": {
+          "kind": "webhook",
+          "spec": {
+            "url": "https://alerts.example.com/signoz",
+            "bearerToken": "00000000-0000-0000-0000-000000000000",
+            "sendResolved": false
+          }
+        }
+      }
+  providerConfigRef:
+    name: providerconfig-sample

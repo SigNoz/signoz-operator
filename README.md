@@ -178,6 +178,7 @@ All kinds are in the `resources.signoz.io/v1alpha1` API group.
 | `SavedView` | A saved view. |
 | `PlannedMaintenance` | A downtime schedule. |
 | `RoutePolicy` | A notification route policy. |
+| `NotificationChannel` | A notification channel. |
 | `User` | A user. |
 | `Role` | A role. |
 | `ServiceAccount` | A service account. |
