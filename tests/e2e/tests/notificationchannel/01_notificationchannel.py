@@ -1,3 +1,4 @@
+import json
 import time
 from collections.abc import Callable
 from http import HTTPStatus
@@ -164,6 +165,44 @@ def test_an_existing_notification_channel_is_adopted(
         kubectl.get("notificationchannel", notification_channel_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
         == created.json()["data"]["id"]
     )
+
+
+def test_a_json_spec_keeps_send_resolved_off(
+    kubectl: Kubectl,
+    signoz: SigNoz,
+    provider_config: str,
+    notification_channel_name: str,
+    apply: Callable[[dict[str, Any]], dict[str, Any]],
+) -> None:
+    body = notification_channel_body(NOTIFICATION_CHANNEL_TESTDATA, notification_channel_name)
+    body["config"]["spec"]["sendResolved"] = False
+    manifest = {
+        "apiVersion": API_VERSION,
+        "kind": "NotificationChannel",
+        "metadata": {"name": notification_channel_name},
+        "spec": {
+            "providerConfigRef": {"name": provider_config},
+            "interval": RESOURCE_INTERVAL,
+            "objectTemplate": {"jsonSpec": json.dumps(body)},
+        },
+    }
+    apply(manifest)
+    await_condition(kubectl, "notificationchannel", notification_channel_name, "Synced", "True")
+    channel_id = kubectl.get("notificationchannel", notification_channel_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
+
+    assert signoz.data(f"{NOTIFICATION_CHANNELS_BASE_URL}/{channel_id}")["config"]["spec"]["sendResolved"] is False
+
+    body["config"]["spec"]["url"] = "https://alerts.example.com/edited"
+    manifest["spec"]["objectTemplate"]["jsonSpec"] = json.dumps(body)
+    apply(manifest)
+
+    eventually(
+        lambda: (
+            signoz.data(f"{NOTIFICATION_CHANNELS_BASE_URL}/{channel_id}")["config"]["spec"]["url"] == "https://alerts.example.com/edited"
+        ),
+        f"notification channel {channel_id} to carry the edited url",
+    )
+    assert signoz.data(f"{NOTIFICATION_CHANNELS_BASE_URL}/{channel_id}")["config"]["spec"]["sendResolved"] is False
 
 
 def test_an_unparseable_json_spec_is_terminal(

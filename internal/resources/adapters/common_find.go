@@ -54,13 +54,10 @@ func findByField(ctx context.Context, c clients.SigNoz, obj resources.Object, pa
 	return matches, nil
 }
 
-// findPageLimit is the page size findByPage asks a paginated list for.
 const findPageLimit = 100
 
-// findByPage walks the paginated list at path and returns the metadata of every
-// entry under data.<listKey> whose name holds the object's identity. It serves
-// the kinds whose list endpoint answers with {data: {<listKey>: [...], total}}
-// and offers no server-side filter on name, so every page is walked.
+// Expects {data: {<listKey>: [...], total}} and walks every page because
+// these endpoints cannot filter by name.
 func findByPage(ctx context.Context, c clients.SigNoz, obj resources.Object, path, listKey string) ([]*v1alpha1.SigNozResource, error) {
 	identity, err := obj.Identity()
 	if err != nil {
