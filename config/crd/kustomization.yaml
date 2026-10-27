@@ -13,6 +13,7 @@ resources:
 - bases/resources.signoz.io_routepolicies.yaml
 - bases/resources.signoz.io_rules.yaml
 - bases/resources.signoz.io_serviceaccounts.yaml
+- bases/resources.signoz.io_notificationchannels.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -1,0 +1,9 @@
+apiVersion: resources.signoz.io/v1alpha1
+kind: NotificationChannel
+metadata:
+  labels:
+    app.kubernetes.io/name: signoz-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: notificationchannel-sample
+spec:
+  # TODO(user): Add fields here
