@@ -2,6 +2,7 @@ import copy
 import time
 from collections.abc import Callable
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 from fixtures.dashboards import DASHBOARDS_BASE_URL, dashboard_body, dashboard_manifest
@@ -17,6 +18,8 @@ from fixtures.resources import (
 )
 from fixtures.signoz import SigNoz
 
+DASHBOARD_TESTDATA = Path(__file__).resolve().parents[3] / "testdata" / "dashboard.json"
+
 
 def test_creates_the_dashboard_and_records_its_id(
     kubectl: Kubectl,
@@ -25,7 +28,7 @@ def test_creates_the_dashboard_and_records_its_id(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    body = dashboard_body(dashboard_name)
+    body = dashboard_body(DASHBOARD_TESTDATA, dashboard_name)
     apply(dashboard_manifest(dashboard_name, provider_config, body))
 
     await_condition(kubectl, "dashboard", dashboard_name, "Ready", "True")
@@ -47,11 +50,13 @@ def test_an_edited_spec_reaches_signoz(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(dashboard_name)))
+    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(DASHBOARD_TESTDATA, dashboard_name)))
     await_condition(kubectl, "dashboard", dashboard_name, "Synced", "True")
     dashboard_id = kubectl.get("dashboard", dashboard_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
 
-    edited = dashboard_body(dashboard_name, display_name="Renamed by the suite", tags=[{"key": "owner", "value": "renamed"}])
+    edited = dashboard_body(
+        DASHBOARD_TESTDATA, dashboard_name, display_name="Renamed by the suite", tags=[{"key": "owner", "value": "renamed"}]
+    )
     apply(dashboard_manifest(dashboard_name, provider_config, edited))
 
     eventually(
@@ -69,7 +74,7 @@ def test_a_change_made_in_signoz_is_reverted(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    body = dashboard_body(dashboard_name)
+    body = dashboard_body(DASHBOARD_TESTDATA, dashboard_name)
     apply(dashboard_manifest(dashboard_name, provider_config, body))
     await_condition(kubectl, "dashboard", dashboard_name, "Synced", "True")
     dashboard_id = kubectl.get("dashboard", dashboard_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
@@ -93,7 +98,7 @@ def test_a_suspended_resource_is_left_alone(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    body = dashboard_body(dashboard_name)
+    body = dashboard_body(DASHBOARD_TESTDATA, dashboard_name)
     apply(dashboard_manifest(dashboard_name, provider_config, body))
     await_condition(kubectl, "dashboard", dashboard_name, "Synced", "True")
     dashboard_id = kubectl.get("dashboard", dashboard_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
@@ -118,7 +123,7 @@ def test_reclaim_delete_removes_the_dashboard(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(dashboard_name), reclaim_policy="Delete"))
+    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(DASHBOARD_TESTDATA, dashboard_name), reclaim_policy="Delete"))
     await_condition(kubectl, "dashboard", dashboard_name, "Synced", "True")
     dashboard_id = kubectl.get("dashboard", dashboard_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
 
@@ -138,7 +143,7 @@ def test_reclaim_orphan_leaves_the_dashboard(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(dashboard_name), reclaim_policy="Orphan"))
+    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(DASHBOARD_TESTDATA, dashboard_name), reclaim_policy="Orphan"))
     await_condition(kubectl, "dashboard", dashboard_name, "Synced", "True")
     dashboard_id = kubectl.get("dashboard", dashboard_name, TEST_NAMESPACE)["status"]["signozResource"]["id"]
 
@@ -155,7 +160,7 @@ def test_an_existing_dashboard_is_adopted(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    body = dashboard_body(dashboard_name)
+    body = dashboard_body(DASHBOARD_TESTDATA, dashboard_name)
     created = signoz.post(DASHBOARDS_BASE_URL, body)
     assert created.status_code == HTTPStatus.CREATED
 
@@ -172,7 +177,7 @@ def test_an_annotation_pins_the_dashboard_to_adopt(
     dashboard_name: str,
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
-    body = dashboard_body(dashboard_name)
+    body = dashboard_body(DASHBOARD_TESTDATA, dashboard_name)
     created = signoz.post(DASHBOARDS_BASE_URL, body)
     assert created.status_code == HTTPStatus.CREATED
     pinned_id = created.json()["data"]["id"]
@@ -190,7 +195,7 @@ def test_a_pin_that_matches_nothing_is_terminal(
     apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
     annotations = {ANNOTATION_SIGNOZ_RESOURCE_ID: "01a00000-0000-7000-0000-000000000000"}
-    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(dashboard_name), annotations=annotations))
+    apply(dashboard_manifest(dashboard_name, provider_config, dashboard_body(DASHBOARD_TESTDATA, dashboard_name), annotations=annotations))
 
     condition = await_condition(kubectl, "dashboard", dashboard_name, "Terminal", "True", "SigNozResourceIDMismatch")
     assert "candidates: none" in condition["message"]

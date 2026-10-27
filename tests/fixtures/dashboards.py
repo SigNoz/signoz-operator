@@ -12,11 +12,10 @@ from fixtures.signoz import SigNoz
 logger = logging.getLogger(__name__)
 
 DASHBOARDS_BASE_URL = "/api/v2/dashboards"
-DASHBOARD_TESTDATA = Path(__file__).resolve().parent.parent / "testdata" / "dashboard.json"
 
 
-def dashboard_body(name: str, display_name: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
-    body = json.loads(DASHBOARD_TESTDATA.read_text())
+def dashboard_body(path: Path, name: str, display_name: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    body = json.loads(path.read_text())
     body["name"] = name
     body["spec"]["display"]["name"] = display_name or name
     if tags is not None:
