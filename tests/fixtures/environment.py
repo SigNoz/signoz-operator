@@ -93,6 +93,8 @@ def environment(
 
     if reuse and cached is not None and cached["cluster_name"] == kind.cluster_name and kind.exists():
         logger.info("Reusing Kind cluster %s", kind.cluster_name)
+        operator.deploy()
+        kubectl.rollout_restart("deployment", "signoz-operator", OPERATOR_NAMESPACE)
         yield environment
         return
 

@@ -1,6 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any
 
 import pytest
@@ -57,7 +58,7 @@ class SigNoz:
 
 @pytest.fixture(scope="session")
 def signoz(signoz_ready: None) -> SigNoz:
-    """Issues a fresh key each session, since a key's value is only returned at creation."""
+    """Issues a fresh key each session, since a key's value is only returned at creation, and revokes it at teardown."""
     with requests.Session() as client:
         context = client.get(
             SIGNOZ_URL + "/api/v2/sessions/context",
@@ -132,10 +133,14 @@ def signoz(signoz_ready: None) -> SigNoz:
             raise RuntimeError(f"could not create a service account key: {key.status_code}: {key.text}")
 
         api_key = key.json()["data"]["key"]
+        key_id = key.json()["data"]["id"]
 
-    client = requests.Session()
-    yield SigNoz(client=client, api_key=api_key)
-    client.close()
+        with requests.Session() as api_client:
+            yield SigNoz(client=api_client, api_key=api_key)
+
+        revoked = client.delete(f"{SIGNOZ_URL}/api/v1/service_accounts/{account_id}/keys/{key_id}", headers=bearer, timeout=TIMEOUT)
+        if revoked.status_code != HTTPStatus.NO_CONTENT:
+            logger.warning("Could not revoke service account key %s: %s: %s", key_id, revoked.status_code, revoked.text)
 
 
 @pytest.fixture(scope="session")

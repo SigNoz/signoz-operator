@@ -12,6 +12,8 @@ from fixtures.kind import Kind
 
 logger = logging.getLogger(__name__)
 
+DELETE_TIMEOUT = "120s"
+
 
 @dataclass(frozen=True)
 class Kubectl:
@@ -25,13 +27,13 @@ class Kubectl:
         self.run("apply", "--kustomize", str(path))
 
     def delete_kustomize(self, path: Path) -> None:
-        self.run("delete", "--ignore-not-found", "--kustomize", str(path))
+        self.run("delete", "--ignore-not-found", f"--timeout={DELETE_TIMEOUT}", "--kustomize", str(path))
 
     def apply_file(self, path: Path) -> None:
         self.run("apply", "--filename", str(path))
 
     def delete_file(self, path: Path) -> None:
-        self.run("delete", "--ignore-not-found", "--filename", str(path))
+        self.run("delete", "--ignore-not-found", f"--timeout={DELETE_TIMEOUT}", "--filename", str(path))
 
     def apply(self, manifest: str, namespace: str) -> None:
         self.run("apply", "--namespace", namespace, "--filename", "-", stdin=manifest)
@@ -41,6 +43,7 @@ class Kubectl:
             "delete",
             "--ignore-not-found",
             f"--wait={str(wait).lower()}",
+            f"--timeout={DELETE_TIMEOUT}",
             "--namespace",
             namespace,
             "--filename",
@@ -65,6 +68,9 @@ class Kubectl:
     def apply_namespace(self, namespace: str) -> None:
         manifest = {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace}}
         self.run("apply", "--filename", "-", stdin=json.dumps(manifest))
+
+    def rollout_restart(self, kind: str, name: str, namespace: str) -> None:
+        self.run("rollout", "restart", f"{kind}/{name}", "--namespace", namespace)
 
     def rollout_status(self, kind: str, name: str, namespace: str, timeout: str) -> None:
         self.run("rollout", "status", f"{kind}/{name}", "--namespace", namespace, f"--timeout={timeout}")
