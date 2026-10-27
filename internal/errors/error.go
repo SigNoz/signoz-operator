@@ -68,8 +68,7 @@ func Wrapf(cause error, reason Reason, format string, args ...any) *Base {
 // ReasonForError returns the reason of the first Base in the chain, or
 // ReasonUnknown when there is none.
 func ReasonForError(err error) Reason {
-	var base *Base
-	if errors.As(err, &base) {
+	if base, ok := errors.AsType[*Base](err); ok {
 		return base.reason
 	}
 
