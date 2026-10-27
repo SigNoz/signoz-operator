@@ -1,0 +1,10 @@
+{
+  "config": {
+    "kind": "webhook",
+    "spec": {
+      "url": "https://alerts.example.com/signoz",
+      "bearerToken": "00000000-0000-0000-0000-000000000000",
+      "sendResolved": false
+    }
+  }
+}
