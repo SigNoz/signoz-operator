@@ -74,6 +74,7 @@ spec:
                         - TRACES_BASED_ALERT
                         - LOGS_BASED_ALERT
                         - EXCEPTIONS_BASED_ALERT
+                        - AI_TRACES_BASED_ALERT
                         type: string
                       annotations:
                         additionalProperties:
@@ -164,6 +165,31 @@ spec:
                                                 type: string
                                             type: object
                                           type: array
+                                        bucketOptions:
+                                          properties:
+                                            kind:
+                                              enum:
+                                              - linear
+                                              - log
+                                              type: string
+                                            spec:
+                                              properties:
+                                                maxValue:
+                                                  type: number
+                                                numBuckets:
+                                                  format: int64
+                                                  type: integer
+                                                scale:
+                                                  format: int64
+                                                  type: integer
+                                              type: object
+                                          required:
+                                          - kind
+                                          - spec
+                                          type: object
+                                          x-kubernetes-validations:
+                                          - message: kind linear requires spec.maxValue
+                                            rule: self.kind != 'linear' || has(self.spec.maxValue)
                                         cursor:
                                           type: string
                                         disabled:
@@ -222,6 +248,7 @@ spec:
                                                 - span
                                                 - trace
                                                 - resource
+                                                - scope
                                                 - attribute
                                                 - body
                                                 type: string
@@ -291,6 +318,7 @@ spec:
                                                     - span
                                                     - trace
                                                     - resource
+                                                    - scope
                                                     - attribute
                                                     - body
                                                     type: string
@@ -341,6 +369,7 @@ spec:
                                                       - span
                                                       - trace
                                                       - resource
+                                                      - scope
                                                       - attribute
                                                       - body
                                                       type: string
@@ -398,6 +427,7 @@ spec:
                                                           - span
                                                           - trace
                                                           - resource
+                                                          - scope
                                                           - attribute
                                                           - body
                                                           type: string
@@ -441,6 +471,7 @@ spec:
                                                 - span
                                                 - trace
                                                 - resource
+                                                - scope
                                                 - attribute
                                                 - body
                                                 type: string
@@ -473,6 +504,8 @@ spec:
                                           - logs
                                           - metrics
                                           type: string
+                                        skipStepAlignment:
+                                          type: boolean
                                         source:
                                           enum:
                                           - meter

@@ -37,7 +37,7 @@ type RoleObjectGroup struct {
 }
 
 type RoleResource struct {
-	// +kubebuilder:validation:Enum=anonymous;organization;role;serviceaccount;user;notification-channel;route-policy;apdex-setting;auth-domain;session;cloud-integration;cloud-integration-service;integration;dashboard;public-dashboard;ingestion-key;ingestion-limit;pipeline;user-preference;org-preference;quick-filter;ttl-setting;rule;planned-maintenance;saved-view;trace-funnel;factor-password;factor-api-key;license;subscription;logs;traces;metrics;audit-logs;meter-metrics;logs-field;traces-field
+	// +kubebuilder:validation:Enum=anonymous;organization;role;serviceaccount;user;notification-channel;route-policy;apdex-setting;auth-domain;session;cloud-integration;cloud-integration-service;integration;dashboard;public-dashboard;ingestion-key;ingestion-limit;pipeline;user-preference;org-preference;quick-filter;ttl-setting;rule;planned-maintenance;saved-view;trace-funnel;factor-password;factor-api-key;license;subscription;deployment-host;logs;traces;metrics;audit-logs;meter-metrics;logs-field;traces-field;metrics-field
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 

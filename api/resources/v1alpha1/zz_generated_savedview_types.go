@@ -13,7 +13,7 @@ type SavedViewObjectSpec struct {
 	// +kubebuilder:validation:Required
 	SchemaVersion string `json:"schemaVersion"`
 
-	// +kubebuilder:validation:Enum=traces;logs;metrics;meter
+	// +kubebuilder:validation:Enum=traces;logs;metrics;meter;ai_observability
 	// +kubebuilder:validation:Required
 	Source string `json:"source"`
 
@@ -36,7 +36,7 @@ type SavedViewSpecPayload struct {
 	// +kubebuilder:validation:Required
 	Queries []SavedViewQuery `json:"queries"`
 
-	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace
+	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap
 	// +kubebuilder:validation:Required
 	RequestType string `json:"requestType"`
 
@@ -44,7 +44,7 @@ type SavedViewSpecPayload struct {
 	Display *SavedViewDisplay `json:"display,omitempty"`
 
 	// +optional
-	SelectedFields []SavedViewSelectField `json:"selectedFields,omitempty"`
+	SelectedFields []SavedViewSelectedField `json:"selectedFields,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_query requires spec.signal"
@@ -61,6 +61,9 @@ type SavedViewQuery struct {
 type SavedViewQuerySpec struct {
 	// +optional
 	Aggregations []SavedViewAggregation `json:"aggregations,omitempty"`
+
+	// +optional
+	BucketOptions *SavedViewBucketOptions `json:"bucketOptions,omitempty"`
 
 	// +optional
 	Cursor string `json:"cursor,omitempty"`
@@ -117,6 +120,9 @@ type SavedViewQuerySpec struct {
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// +optional
+	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
+
 	// +kubebuilder:validation:Enum=meter
 	// +optional
 	Source string `json:"source,omitempty"`
@@ -172,6 +178,27 @@ type SavedViewComparisonSpaceAggregationParam struct {
 	Threshold float64 `json:"threshold"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
+type SavedViewBucketOptions struct {
+	// +kubebuilder:validation:Enum=linear;log
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec SavedViewBucketOptionsSpec `json:"spec"`
+}
+
+type SavedViewBucketOptionsSpec struct {
+	// +optional
+	MaxValue float64 `json:"maxValue,omitempty"`
+
+	// +optional
+	NumBuckets int64 `json:"numBuckets,omitempty"`
+
+	// +optional
+	Scale int64 `json:"scale,omitempty"`
+}
+
 type SavedViewFilter struct {
 	// +optional
 	Expression string `json:"expression,omitempty"`
@@ -203,7 +230,7 @@ type SavedViewGroupBy struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -249,7 +276,7 @@ type SavedViewKey struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -273,7 +300,7 @@ type SavedViewSecondaryAggregation struct {
 	Expression string `json:"expression,omitempty"`
 
 	// +optional
-	GroupBy []SavedViewGroupBy `json:"groupBy,omitempty"`
+	GroupBy []SavedViewSecondaryAggregationGroupBy `json:"groupBy,omitempty"`
 
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
@@ -282,11 +309,35 @@ type SavedViewSecondaryAggregation struct {
 	LimitBy *SavedViewSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
 	// +optional
-	Order []SavedViewOrder `json:"order,omitempty"`
+	Order []SavedViewSecondaryAggregationOrder `json:"order,omitempty"`
 
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
+}
+
+type SavedViewSecondaryAggregationGroupBy struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
 }
 
 type SavedViewSecondaryAggregationLimitBy struct {
@@ -297,6 +348,15 @@ type SavedViewSecondaryAggregationLimitBy struct {
 	Value string `json:"value,omitempty"`
 }
 
+type SavedViewSecondaryAggregationOrder struct {
+	// +kubebuilder:validation:Enum=asc;desc
+	// +optional
+	Direction string `json:"direction,omitempty"`
+
+	// +optional
+	Key *SavedViewKey `json:"key,omitempty"`
+}
+
 type SavedViewSelectField struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -305,7 +365,7 @@ type SavedViewSelectField struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -333,6 +393,30 @@ type SavedViewDisplay struct {
 
 	// +optional
 	MaxLines int64 `json:"maxLines,omitempty"`
+}
+
+type SavedViewSelectedField struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
 }
 
 // +kubebuilder:validation:MinProperties=1

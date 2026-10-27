@@ -137,7 +137,7 @@ type DashboardPanelSpec struct {
 }
 
 type DashboardPlugin struct {
-	// +kubebuilder:validation:Enum=signoz/TimeSeriesPanel;signoz/BarChartPanel;signoz/NumberPanel;signoz/PieChartPanel;signoz/TablePanel;signoz/HistogramPanel;signoz/ListPanel
+	// +kubebuilder:validation:Enum=signoz/TimeSeriesPanel;signoz/BarChartPanel;signoz/AreaChartPanel;signoz/NumberPanel;signoz/PieChartPanel;signoz/TablePanel;signoz/HistogramPanel;signoz/ListPanel;signoz/TextPanel;signoz/HeatmapPanel
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
@@ -156,13 +156,26 @@ type DashboardPluginSpec struct {
 	Formatting *DashboardFormatting `json:"formatting,omitempty"`
 
 	// +optional
+	HeaderOptions *DashboardHeaderOptions `json:"headerOptions,omitempty"`
+
+	// +optional
 	HistogramBuckets *DashboardHistogramBuckets `json:"histogramBuckets,omitempty"`
 
 	// +optional
 	Legend *DashboardLegend `json:"legend,omitempty"`
 
+	// +kubebuilder:validation:Enum=markdown
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// +optional
+	Presentation *DashboardPresentation `json:"presentation,omitempty"`
+
 	// +optional
 	SelectFields []DashboardSelectField `json:"selectFields,omitempty"`
+
+	// +optional
+	Text string `json:"text,omitempty"`
 
 	// +optional
 	Thresholds []DashboardThreshold `json:"thresholds,omitempty"`
@@ -180,12 +193,27 @@ type DashboardAxes struct {
 
 	// +optional
 	SoftMin float64 `json:"softMin,omitempty"`
+
+	// +optional
+	Y *DashboardY `json:"y,omitempty"`
+}
+
+type DashboardY struct {
+	// +kubebuilder:validation:Enum=auto;linear;log;symlog
+	// +optional
+	Scale string `json:"scale,omitempty"`
 }
 
 type DashboardChartAppearance struct {
+	// +optional
+	Colors *DashboardColors `json:"colors,omitempty"`
+
 	// +kubebuilder:validation:Enum=solid;gradient;none
 	// +optional
 	FillMode string `json:"fillMode,omitempty"`
+
+	// +optional
+	FillOpacity float64 `json:"fillOpacity,omitempty"`
 
 	// +kubebuilder:validation:Enum=linear;spline;step_after;step_before
 	// +optional
@@ -200,6 +228,32 @@ type DashboardChartAppearance struct {
 
 	// +optional
 	SpanGaps *DashboardSpanGaps `json:"spanGaps,omitempty"`
+}
+
+type DashboardColors struct {
+	// +optional
+	Fill string `json:"fill,omitempty"`
+
+	// +optional
+	MaxCount float64 `json:"maxCount,omitempty"`
+
+	// +optional
+	MinCount float64 `json:"minCount,omitempty"`
+
+	// +kubebuilder:validation:Enum=palette;opacity
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// +kubebuilder:validation:Enum=ice;moss;rust;graphite;ember;lagoon;orchid;verdant;lava;beacon
+	// +optional
+	Palette string `json:"palette,omitempty"`
+
+	// +kubebuilder:validation:Enum=log;sqrt;linear
+	// +optional
+	Scale string `json:"scale,omitempty"`
+
+	// +optional
+	Steps int64 `json:"steps,omitempty"`
 }
 
 type DashboardSpanGaps struct {
@@ -220,6 +274,11 @@ type DashboardFormatting struct {
 
 	// +optional
 	Unit string `json:"unit,omitempty"`
+}
+
+type DashboardHeaderOptions struct {
+	// +optional
+	Hide bool `json:"hide,omitempty"`
 }
 
 type DashboardHistogramBuckets struct {
@@ -246,6 +305,19 @@ type DashboardLegend struct {
 	Position string `json:"position,omitempty"`
 }
 
+type DashboardPresentation struct {
+	// +optional
+	Background string `json:"background,omitempty"`
+
+	// +kubebuilder:validation:Enum=left;center;right
+	// +optional
+	TextAlign string `json:"textAlign,omitempty"`
+
+	// +kubebuilder:validation:Enum=top;center;bottom
+	// +optional
+	VerticalAlign string `json:"verticalAlign,omitempty"`
+}
+
 type DashboardSelectField struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -254,7 +326,7 @@ type DashboardSelectField struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -300,6 +372,10 @@ type DashboardVisualization struct {
 	// +optional
 	FillSpans bool `json:"fillSpans,omitempty"`
 
+	// +kubebuilder:validation:Enum=none;normal;percent
+	// +optional
+	Stack string `json:"stack,omitempty"`
+
 	// +optional
 	StackedBarChart bool `json:"stackedBarChart,omitempty"`
 
@@ -309,7 +385,7 @@ type DashboardVisualization struct {
 }
 
 type DashboardQuery struct {
-	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace
+	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
@@ -326,8 +402,9 @@ type DashboardQuerySpec struct {
 }
 
 // +kubebuilder:validation:XValidation:rule="self.kind != 'signoz/BuilderQuery' || has(self.spec.signal)",message="kind signoz/BuilderQuery requires spec.signal"
+// +kubebuilder:validation:XValidation:rule="self.kind != 'signoz/AIBuilderQuery' || has(self.spec.signal)",message="kind signoz/AIBuilderQuery requires spec.signal"
 type DashboardQuerySpecPlugin struct {
-	// +kubebuilder:validation:Enum=signoz/BuilderQuery;signoz/CompositeQuery;signoz/Formula;signoz/PromQLQuery;signoz/ClickHouseSQL;signoz/TraceOperator
+	// +kubebuilder:validation:Enum=signoz/BuilderQuery;signoz/AIBuilderQuery;signoz/CompositeQuery;signoz/Formula;signoz/PromQLQuery;signoz/ClickHouseSQL;signoz/TraceOperator
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
@@ -338,6 +415,9 @@ type DashboardQuerySpecPlugin struct {
 type DashboardQuerySpecPluginSpec struct {
 	// +optional
 	Aggregations []DashboardAggregation `json:"aggregations,omitempty"`
+
+	// +optional
+	BucketOptions *DashboardBucketOptions `json:"bucketOptions,omitempty"`
 
 	// +optional
 	Cursor string `json:"cursor,omitempty"`
@@ -391,11 +471,14 @@ type DashboardQuerySpecPluginSpec struct {
 	SecondaryAggregations []DashboardSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
-	SelectFields []DashboardSelectField `json:"selectFields,omitempty"`
+	SelectFields []DashboardQuerySpecPluginSpecSelectField `json:"selectFields,omitempty"`
 
 	// +kubebuilder:validation:Enum=logs;metrics;traces
 	// +optional
 	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
 	// +kubebuilder:validation:Enum=meter
 	// +optional
@@ -452,6 +535,27 @@ type DashboardComparisonSpaceAggregationParam struct {
 	Threshold float64 `json:"threshold"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
+type DashboardBucketOptions struct {
+	// +kubebuilder:validation:Enum=linear;log
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec DashboardBucketOptionsSpec `json:"spec"`
+}
+
+type DashboardBucketOptionsSpec struct {
+	// +optional
+	MaxValue float64 `json:"maxValue,omitempty"`
+
+	// +optional
+	NumBuckets int64 `json:"numBuckets,omitempty"`
+
+	// +optional
+	Scale int64 `json:"scale,omitempty"`
+}
+
 type DashboardFilter struct {
 	// +optional
 	Expression string `json:"expression,omitempty"`
@@ -483,7 +587,7 @@ type DashboardGroupBy struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -529,7 +633,7 @@ type DashboardKey struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -561,6 +665,9 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 	Aggregations []DashboardQuerySpecPluginSpecQuerySpecAggregation `json:"aggregations,omitempty"`
 
 	// +optional
+	BucketOptions *DashboardQuerySpecPluginSpecQuerySpecBucketOptions `json:"bucketOptions,omitempty"`
+
+	// +optional
 	Cursor string `json:"cursor,omitempty"`
 
 	// +optional
@@ -573,10 +680,10 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 	Filter *DashboardQuerySpecPluginSpecQuerySpecFilter `json:"filter,omitempty"`
 
 	// +optional
-	Functions []DashboardFunction `json:"functions,omitempty"`
+	Functions []DashboardQuerySpecPluginSpecQuerySpecFunction `json:"functions,omitempty"`
 
 	// +optional
-	GroupBy []DashboardGroupBy `json:"groupBy,omitempty"`
+	GroupBy []DashboardQuerySpecPluginSpecQuerySpecGroupBy `json:"groupBy,omitempty"`
 
 	// +optional
 	Having *DashboardQuerySpecPluginSpecQuerySpecHaving `json:"having,omitempty"`
@@ -597,7 +704,7 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 	Offset int64 `json:"offset,omitempty"`
 
 	// +optional
-	Order []DashboardOrder `json:"order,omitempty"`
+	Order []DashboardQuerySpecPluginSpecQuerySpecOrder `json:"order,omitempty"`
 
 	// +optional
 	Query string `json:"query,omitempty"`
@@ -609,11 +716,14 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 	SecondaryAggregations []DashboardSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
-	SelectFields []DashboardSelectField `json:"selectFields,omitempty"`
+	SelectFields []DashboardQuerySpecPluginSpecQuerySpecSelectField `json:"selectFields,omitempty"`
 
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
 	// +kubebuilder:validation:Enum=meter
 	// +optional
@@ -661,9 +771,63 @@ type DashboardQuerySpecPluginSpecQuerySpecAggregation struct {
 	TimeAggregation string `json:"timeAggregation,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
+type DashboardQuerySpecPluginSpecQuerySpecBucketOptions struct {
+	// +kubebuilder:validation:Enum=linear;log
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec DashboardQuerySpecPluginSpecQuerySpecBucketOptionsSpec `json:"spec"`
+}
+
+type DashboardQuerySpecPluginSpecQuerySpecBucketOptionsSpec struct {
+	// +optional
+	MaxValue float64 `json:"maxValue,omitempty"`
+
+	// +optional
+	NumBuckets int64 `json:"numBuckets,omitempty"`
+
+	// +optional
+	Scale int64 `json:"scale,omitempty"`
+}
+
 type DashboardQuerySpecPluginSpecQuerySpecFilter struct {
 	// +optional
 	Expression string `json:"expression,omitempty"`
+}
+
+type DashboardQuerySpecPluginSpecQuerySpecFunction struct {
+	// +optional
+	Args []DashboardArg `json:"args,omitempty"`
+
+	// +kubebuilder:validation:Enum=cutoffmin;cutoffmax;clampmin;clampmax;absolute;runningdiff;log2;log10;cumulativesum;ewma3;ewma5;ewma7;median3;median5;median7;timeshift;anomaly;fillzero
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+type DashboardQuerySpecPluginSpecQuerySpecGroupBy struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecHaving struct {
@@ -679,6 +843,15 @@ type DashboardQuerySpecPluginSpecQuerySpecLimitBy struct {
 	Value string `json:"value,omitempty"`
 }
 
+type DashboardQuerySpecPluginSpecQuerySpecOrder struct {
+	// +kubebuilder:validation:Enum=asc;desc
+	// +optional
+	Direction string `json:"direction,omitempty"`
+
+	// +optional
+	Key *DashboardKey `json:"key,omitempty"`
+}
+
 type DashboardSecondaryAggregation struct {
 	// +optional
 	Alias string `json:"alias,omitempty"`
@@ -687,7 +860,7 @@ type DashboardSecondaryAggregation struct {
 	Expression string `json:"expression,omitempty"`
 
 	// +optional
-	GroupBy []DashboardGroupBy `json:"groupBy,omitempty"`
+	GroupBy []DashboardSecondaryAggregationGroupBy `json:"groupBy,omitempty"`
 
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
@@ -696,11 +869,35 @@ type DashboardSecondaryAggregation struct {
 	LimitBy *DashboardSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
 	// +optional
-	Order []DashboardOrder `json:"order,omitempty"`
+	Order []DashboardSecondaryAggregationOrder `json:"order,omitempty"`
 
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
+}
+
+type DashboardSecondaryAggregationGroupBy struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardSecondaryAggregationLimitBy struct {
@@ -709,6 +906,63 @@ type DashboardSecondaryAggregationLimitBy struct {
 
 	// +optional
 	Value string `json:"value,omitempty"`
+}
+
+type DashboardSecondaryAggregationOrder struct {
+	// +kubebuilder:validation:Enum=asc;desc
+	// +optional
+	Direction string `json:"direction,omitempty"`
+
+	// +optional
+	Key *DashboardKey `json:"key,omitempty"`
+}
+
+type DashboardQuerySpecPluginSpecQuerySpecSelectField struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
+}
+
+type DashboardQuerySpecPluginSpecSelectField struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardLink struct {
