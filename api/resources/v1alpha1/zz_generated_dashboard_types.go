@@ -9,60 +9,76 @@ import (
 )
 
 type DashboardObjectSpec struct {
+	// The dashboard schema version. Must be v6.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	SchemaVersion string `json:"schemaVersion"`
 
+	// The dashboard content: display, variables, panels, layouts and links.
 	// +kubebuilder:validation:Required
 	Spec DashboardSpecPayload `json:"spec"`
 
+	// Up to 10 key/value tags, for example key team with value payments. Keys must not be one of the reserved list filter keys: name, description, created_at, updated_at, created_by, locked, source. Use [] for none.
 	// +kubebuilder:validation:Required
 	Tags []DashboardTag `json:"tags"`
 
+	// Icon or logo shown in the dashboard list: the path of an icon or logo bundled with the UI under /assets/Icons/ or /assets/Logos/ (only the prefix is validated), or a base64 image data URI for png, jpeg, gif, webp, avif or svg. Empty for none.
 	// +optional
 	Image string `json:"image,omitempty"`
 
+	// The dashboard's unique name, a DNS-1123 label (lowercase letters, digits and hyphens, at most 63 characters). Immutable after creation. Must be empty when generateName is true.
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 type DashboardSpecPayload struct {
+	// The dashboard title and description.
 	// +kubebuilder:validation:Required
 	Display DashboardDisplay `json:"display"`
 
+	// The Grid layouts that place panels, at most 500. Each panel can be placed at most once. Use [] for none.
 	// +kubebuilder:validation:Required
 	Layouts []DashboardLayout `json:"layouts"`
 
+	// The panels keyed by panel id. An id has up to 75 characters from letters, digits, dot, underscore and hyphen. A panel is shown only where a layout item references it as #/spec/panels/<id>. Use {} for none.
 	// +kubebuilder:validation:Required
 	Panels map[string]DashboardPanel `json:"panels"`
 
+	// The dashboard variables, each a ListVariable or TextVariable envelope, referenced in queries as $name. Names must be unique. Use [] for none.
 	// +kubebuilder:validation:Required
 	Variables []DashboardVariable `json:"variables"`
 
+	// The default time range, as a Prometheus duration such as 1h or 7d. Stored, but not applied by the UI.
 	// +optional
 	Duration string `json:"duration,omitempty"`
 
+	// External links stored with the dashboard. Not shown by the UI.
 	// +optional
 	Links []DashboardLink `json:"links,omitempty"`
 
+	// The auto refresh interval, as a Prometheus duration such as 30s. Stored, but not applied by the UI.
 	// +optional
 	RefreshInterval string `json:"refreshInterval,omitempty"`
 }
 
 type DashboardDisplay struct {
+	// The human-readable title, at most 128 characters.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// A free-text description.
 	// +optional
 	Description string `json:"description,omitempty"`
 }
 
 type DashboardLayout struct {
+	// The layout kind.
 	// +kubebuilder:validation:Enum=Grid
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The grid section: an optional display title and up to 100 items that place panels. Each item has a content.$ref of #/spec/panels/<id> plus x, y, width and height on a 12-column grid: x and y at least 0, width and height at least 1, x plus width at most 12, and no two items overlapping.
 	// +kubebuilder:validation:Required
 	Spec DashboardLayoutSpec `json:"spec"`
 }
@@ -114,33 +130,41 @@ type DashboardContent struct {
 }
 
 type DashboardPanel struct {
+	// The panel envelope kind. Always Panel.
 	// +kubebuilder:validation:Enum=Panel
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The panel content: display, plugin, queries and links.
 	// +kubebuilder:validation:Required
 	Spec DashboardPanelSpec `json:"spec"`
 }
 
 type DashboardPanelSpec struct {
+	// The panel title and description.
 	// +kubebuilder:validation:Required
 	Display DashboardDisplay `json:"display"`
 
+	// The visualization: kind is one of signoz/TimeSeriesPanel, signoz/BarChartPanel, signoz/AreaChartPanel, signoz/NumberPanel, signoz/PieChartPanel, signoz/TablePanel, signoz/HistogramPanel, signoz/ListPanel, signoz/TextPanel or signoz/HeatmapPanel, and spec holds that kind's options ({} accepts every default).
 	// +kubebuilder:validation:Required
 	Plugin DashboardPlugin `json:"plugin"`
 
+	// The queries the panel runs. Use exactly one entry for a data panel and [] for signoz/TextPanel. To run several named queries or formulas, use one entry whose spec.plugin.kind is signoz/CompositeQuery and put the constituent queries in its plugin spec.
 	// +kubebuilder:validation:Required
 	Queries []DashboardQuery `json:"queries"`
 
+	// Context links offered in the data point drilldown menu of the panel, with dashboard variables resolved in the URL.
 	// +optional
 	Links []DashboardLink `json:"links,omitempty"`
 }
 
 type DashboardPlugin struct {
+	// The panel kind.
 	// +kubebuilder:validation:Enum=signoz/TimeSeriesPanel;signoz/BarChartPanel;signoz/AreaChartPanel;signoz/NumberPanel;signoz/PieChartPanel;signoz/TablePanel;signoz/HistogramPanel;signoz/ListPanel;signoz/TextPanel;signoz/HeatmapPanel
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The options for this panel kind. {} accepts every default.
 	// +kubebuilder:validation:Required
 	Spec DashboardPluginSpec `json:"spec"`
 }
@@ -155,25 +179,31 @@ type DashboardPluginSpec struct {
 	// +optional
 	Formatting *DashboardFormatting `json:"formatting,omitempty"`
 
+	// Whether the panel header is shown.
 	// +optional
 	HeaderOptions *DashboardHeaderOptions `json:"headerOptions,omitempty"`
 
+	// How values are grouped into buckets.
 	// +optional
 	HistogramBuckets *DashboardHistogramBuckets `json:"histogramBuckets,omitempty"`
 
 	// +optional
 	Legend *DashboardLegend `json:"legend,omitempty"`
 
+	// How text is interpreted. Only markdown is supported.
 	// +kubebuilder:validation:Enum=markdown
 	// +optional
 	Mode string `json:"mode,omitempty"`
 
+	// Alignment and background of the content.
 	// +optional
 	Presentation *DashboardPresentation `json:"presentation,omitempty"`
 
+	// The columns shown for each row, as field keys with name and optional fieldContext, fieldDataType and signal. Empty shows the default columns.
 	// +optional
 	SelectFields []DashboardSelectField `json:"selectFields,omitempty"`
 
+	// The content to render.
 	// +optional
 	Text string `json:"text,omitempty"`
 
@@ -185,26 +215,32 @@ type DashboardPluginSpec struct {
 }
 
 type DashboardAxes struct {
+	// Whether the Y axis uses a logarithmic scale.
 	// +optional
 	IsLogScale bool `json:"isLogScale,omitempty"`
 
+	// The highest value the Y axis always shows; data above it still extends the axis. Null fits the data.
 	// +optional
-	SoftMax float64 `json:"softMax,omitempty"`
+	SoftMax *float64 `json:"softMax,omitempty"`
 
+	// The lowest value the Y axis always shows; data below it still extends the axis. Null fits the data.
 	// +optional
-	SoftMin float64 `json:"softMin,omitempty"`
+	SoftMin *float64 `json:"softMin,omitempty"`
 
+	// The bucket axis.
 	// +optional
 	Y *DashboardY `json:"y,omitempty"`
 }
 
 type DashboardY struct {
+	// How bucket bounds are spaced on the axis: auto (default), linear, log or symlog.
 	// +kubebuilder:validation:Enum=auto;linear;log;symlog
 	// +optional
 	Scale string `json:"scale,omitempty"`
 }
 
 type DashboardChartAppearance struct {
+	// The color scale applied to bucket counts.
 	// +optional
 	Colors *DashboardColors `json:"colors,omitempty"`
 
@@ -212,132 +248,165 @@ type DashboardChartAppearance struct {
 	// +optional
 	FillMode string `json:"fillMode,omitempty"`
 
+	// The fill opacity from 0 (transparent) to 1 (opaque). Null uses the chart default.
 	// +optional
-	FillOpacity float64 `json:"fillOpacity,omitempty"`
+	FillOpacity *float64 `json:"fillOpacity,omitempty"`
 
+	// How points are joined: linear, spline (default), step_after or step_before.
 	// +kubebuilder:validation:Enum=linear;spline;step_after;step_before
 	// +optional
 	LineInterpolation string `json:"lineInterpolation,omitempty"`
 
+	// The line stroke: solid (default) or dashed.
 	// +kubebuilder:validation:Enum=solid;dashed
 	// +optional
 	LineStyle string `json:"lineStyle,omitempty"`
 
+	// Whether each data point is marked on the line.
 	// +optional
 	ShowPoints bool `json:"showPoints,omitempty"`
 
+	// Whether lines connect across missing points.
 	// +optional
 	SpanGaps *DashboardSpanGaps `json:"spanGaps,omitempty"`
 }
 
 type DashboardColors struct {
+	// The hex color varied in opacity mode. Empty uses the series legend color.
 	// +optional
 	Fill string `json:"fill,omitempty"`
 
+	// The count mapped to the highest color. Null uses the highest count in the grid.
 	// +optional
-	MaxCount float64 `json:"maxCount,omitempty"`
+	MaxCount *float64 `json:"maxCount,omitempty"`
 
+	// The count mapped to the lowest color. Null uses 0. Must not exceed maxCount.
 	// +optional
-	MinCount float64 `json:"minCount,omitempty"`
+	MinCount *float64 `json:"minCount,omitempty"`
 
+	// How counts are colored: palette (default) picks a hue from palette, opacity varies the opacity of fill.
 	// +kubebuilder:validation:Enum=palette;opacity
 	// +optional
 	Mode string `json:"mode,omitempty"`
 
+	// The named color ramp used in palette mode, such as lava (default), ice or ember.
 	// +kubebuilder:validation:Enum=ice;moss;rust;graphite;ember;lagoon;orchid;verdant;lava;beacon
 	// +optional
 	Palette string `json:"palette,omitempty"`
 
+	// How counts map onto the color range: log (default), sqrt or linear.
 	// +kubebuilder:validation:Enum=log;sqrt;linear
 	// +optional
 	Scale string `json:"scale,omitempty"`
 
+	// The number of distinct color steps, 2 to 128. 0 uses the chart default.
 	// +optional
 	Steps int64 `json:"steps,omitempty"`
 }
 
 type DashboardSpanGaps struct {
+	// The largest gap still connected when fillOnlyBelow is true; longer gaps are left disconnected. Required in that case, as a positive Prometheus duration such as 30s, 5m or 1d.
 	// +optional
 	FillLessThan string `json:"fillLessThan,omitempty"`
 
+	// Controls whether lines connect across null values. When false (default), all gaps are connected. When true, only gaps smaller than fillLessThan are connected.
 	// +optional
 	FillOnlyBelow bool `json:"fillOnlyBelow,omitempty"`
 }
 
 type DashboardFormatting struct {
+	// Unit id per value column, keyed by the column key: the query name for a builder query with one aggregation (A), the query name dotted with the aggregation expression for several (A.count()), or the SQL alias for a ClickHouse SQL column. Aggregation aliases are display labels, not keys.
 	// +optional
 	ColumnUnits map[string]string `json:"columnUnits,omitempty"`
 
+	// Decimal places shown: 0, 1, 2 (default), 3, 4 or full.
 	// +kubebuilder:validation:Enum="0";"1";"2";"3";"4";full
 	// +optional
 	DecimalPrecision string `json:"decimalPrecision,omitempty"`
 
+	// The display unit of the values, such as By, ms, s, percent or percentunit. Use percent for values already expressed as percentages (95 displays as 95%) and percentunit for fractions (0.95 displays as 95%). Empty shows plain numbers.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardHeaderOptions struct {
+	// Whether the title and description row above the content is hidden.
 	// +optional
 	Hide bool `json:"hide,omitempty"`
 }
 
 type DashboardHistogramBuckets struct {
+	// The approximate target number of buckets. Ignored when bucketWidth is positive. Null uses the chart default.
 	// +optional
-	BucketCount float64 `json:"bucketCount,omitempty"`
+	BucketCount *float64 `json:"bucketCount,omitempty"`
 
+	// The width of each bucket in the value unit. A positive value takes precedence over bucketCount; null or 0 lets the chart choose.
 	// +optional
-	BucketWidth float64 `json:"bucketWidth,omitempty"`
+	BucketWidth *float64 `json:"bucketWidth,omitempty"`
 
+	// Whether every series is combined into a single histogram instead of one per series.
 	// +optional
 	MergeAllActiveQueries bool `json:"mergeAllActiveQueries,omitempty"`
 }
 
 type DashboardLegend struct {
+	// Hex colors keyed by series label, overriding the automatic palette.
 	// +optional
 	CustomColors map[string]string `json:"customColors,omitempty"`
 
+	// The legend layout. Only list is supported.
 	// +kubebuilder:validation:Enum=list
 	// +optional
 	Mode string `json:"mode,omitempty"`
 
+	// Where the legend sits: bottom (default) or right.
 	// +kubebuilder:validation:Enum=bottom;right
 	// +optional
 	Position string `json:"position,omitempty"`
 }
 
 type DashboardPresentation struct {
+	// A hex background color such as #1f2937. Omit for the panel default.
 	// +optional
 	Background string `json:"background,omitempty"`
 
+	// Horizontal alignment: left (default), center or right.
 	// +kubebuilder:validation:Enum=left;center;right
 	// +optional
 	TextAlign string `json:"textAlign,omitempty"`
 
+	// Vertical alignment: top (default), center or bottom.
 	// +kubebuilder:validation:Enum=top;center;bottom
 	// +optional
 	VerticalAlign string `json:"verticalAlign,omitempty"`
 }
 
 type DashboardSelectField struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
@@ -350,53 +419,66 @@ type DashboardThreshold struct {
 	// +kubebuilder:validation:Required
 	Value float64 `json:"value"`
 
+	// The key of the value column the rule applies to: the query name for a builder query with one aggregation (A), the query name dotted with the aggregation expression for several (A.count()), or the SQL alias for a ClickHouse SQL column. Group-by columns are never colored, and aggregation aliases are display labels, not keys.
 	// +optional
 	ColumnName string `json:"columnName,omitempty"`
 
+	// What the color is applied to: text (default) or background.
 	// +kubebuilder:validation:Enum=text;background
 	// +optional
 	Format string `json:"format,omitempty"`
 
+	// The caption shown on the line.
 	// +optional
 	Label string `json:"label,omitempty"`
 
+	// The comparison that activates the threshold: above (default), below, above_or_equal, below_or_equal, equal or not_equal.
 	// +kubebuilder:validation:Enum=above;below;above_or_equal;below_or_equal;equal;not_equal
 	// +optional
 	Operator string `json:"operator,omitempty"`
 
+	// The unit id of value, such as ms or percent. Empty means the panel's unit, or the column's unit for a table threshold. Prefer the panel's unit; a different unit works only when it converts to it, such as s against a panel in ms.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardVisualization struct {
+	// Whether intervals with no data are drawn as zero instead of a gap.
 	// +optional
 	FillSpans bool `json:"fillSpans,omitempty"`
 
+	// How the areas combine: none (default) overlays them, normal stacks the values, percent stacks them as shares of the total.
 	// +kubebuilder:validation:Enum=none;normal;percent
 	// +optional
 	Stack string `json:"stack,omitempty"`
 
+	// Whether the series are stacked on top of each other.
 	// +optional
 	StackedBarChart bool `json:"stackedBarChart,omitempty"`
 
+	// The time range the panel queries: global_time (default) follows the dashboard range; last_5_min, last_15_min, last_30_min, last_1_hr, last_6_hr, last_1_day, last_3_days, last_1_week or last_1_month pin a fixed window.
 	// +kubebuilder:validation:Enum=global_time;last_5_min;last_15_min;last_30_min;last_1_hr;last_6_hr;last_1_day;last_3_days;last_1_week;last_1_month
 	// +optional
 	TimePreference string `json:"timePreference,omitempty"`
 }
 
 type DashboardQuery struct {
+	// The result shape the panel requests: time_series for time series, bar, area and histogram panels, scalar for number, table and pie panels, raw for list panels, heatmap for heatmap panels, trace for trace panels.
 	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The query content: an optional name and the query plugin.
 	// +kubebuilder:validation:Required
 	Spec DashboardQuerySpec `json:"spec"`
 }
 
 type DashboardQuerySpec struct {
+	// The query: kind is one of signoz/BuilderQuery, signoz/AIBuilderQuery (builder query over AI observability traces), signoz/CompositeQuery (several named queries and formulas), signoz/Formula, signoz/PromQLQuery, signoz/ClickHouseSQL or signoz/TraceOperator, and spec holds that kind's query. Pie and table panels reject signoz/PromQLQuery; heatmap panels reject signoz/AIBuilderQuery and signoz/TraceOperator; list panels accept only signoz/BuilderQuery and signoz/AIBuilderQuery.
 	// +kubebuilder:validation:Required
 	Plugin DashboardQuerySpecPlugin `json:"plugin"`
 
+	// An optional label for the query. The name queries refer to each other by lives in the plugin spec.
 	// +optional
 	Name string `json:"name,omitempty"`
 }
@@ -404,10 +486,12 @@ type DashboardQuerySpec struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'signoz/BuilderQuery' || has(self.spec.signal)",message="kind signoz/BuilderQuery requires spec.signal"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'signoz/AIBuilderQuery' || has(self.spec.signal)",message="kind signoz/AIBuilderQuery requires spec.signal"
 type DashboardQuerySpecPlugin struct {
+	// The query kind.
 	// +kubebuilder:validation:Enum=signoz/BuilderQuery;signoz/AIBuilderQuery;signoz/CompositeQuery;signoz/Formula;signoz/PromQLQuery;signoz/ClickHouseSQL;signoz/TraceOperator
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The kind-specific query spec.
 	// +kubebuilder:validation:Required
 	Spec DashboardQuerySpecPluginSpec `json:"spec"`
 }
@@ -446,6 +530,7 @@ type DashboardQuerySpecPluginSpec struct {
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Reserved for applying limit within each combination of the given group-by keys. Accepted but currently ignored.
 	// +optional
 	LimitBy *DashboardLimitBy `json:"limitBy,omitempty"`
 
@@ -458,35 +543,43 @@ type DashboardQuerySpecPluginSpec struct {
 	// +optional
 	Order []DashboardOrder `json:"order,omitempty"`
 
+	// The queries to run, each wrapped in a type-discriminated envelope. Names must be unique; formulas and trace operators reference other queries by name.
 	// +optional
 	Queries []DashboardQuerySpecPluginSpecQuery `json:"queries,omitempty"`
 
 	// +optional
 	Query string `json:"query,omitempty"`
 
+	// The name of the operand query whose spans are returned; when empty, the spans matched by the whole expression are returned.
 	// +optional
 	ReturnSpansFrom string `json:"returnSpansFrom,omitempty"`
 
+	// Accepted but currently ignored, including their nested order, limit and limitBy.
 	// +optional
 	SecondaryAggregations []DashboardSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
 	SelectFields []DashboardQuerySpecPluginSpecSelectField `json:"selectFields,omitempty"`
 
+	// The telemetry signal to query: traces, logs or metrics. It selects the aggregation shape and is required for builder_query.
 	// +kubebuilder:validation:Enum=logs;metrics;traces
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// When true, start and end are evaluated as given instead of rounded down to the step, and the result is not cached. Defaults to false.
 	// +optional
 	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
+	// The data source within the signal. Set to meter for Cost Meter metrics; leave empty for regular telemetry.
 	// +kubebuilder:validation:Enum=meter
 	// +optional
 	Source string `json:"source,omitempty"`
 
+	// Reserved; currently has no effect.
 	// +optional
 	Stats bool `json:"stats,omitempty"`
 
+	// The evaluation step: seconds as a number or a Go duration string such as 60s. Derived from the time range when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Step *apiextensionsv1.JSON `json:"step,omitempty"`
@@ -497,46 +590,56 @@ type DashboardQuerySpecPluginSpec struct {
 }
 
 type DashboardAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// Histogram metrics with spaceAggregation count only: the comparison operator and bucket bound used to estimate how many observations fall at or below, or above, the threshold. Ignored for other metric types and aggregations.
 	// +optional
 	ComparisonSpaceAggregationParam *DashboardComparisonSpaceAggregationParam `json:"comparisonSpaceAggregationParam,omitempty"`
 
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The name of the metric to query, for example k8s.pod.cpu_request_utilization.
 	// +optional
 	MetricName string `json:"metricName,omitempty"`
 
+	// How a series collapses to one number in scalar requests: sum, count, avg, min, max, last or median. Ignored by time_series requests.
 	// +kubebuilder:validation:Enum=sum;count;avg;min;max;last;median
 	// +optional
 	ReduceTo string `json:"reduceTo,omitempty"`
 
+	// How series are combined across each group, such as sum, avg, min, max or count; histograms take percentiles such as p50, p90, p95 or p99.
 	// +kubebuilder:validation:Enum=sum;avg;min;max;count;p50;p75;p90;p95;p99
 	// +optional
 	SpaceAggregation string `json:"spaceAggregation,omitempty"`
 
+	// The temporality of the metric: delta, cumulative or unspecified. Resolved from the metric metadata when omitted.
 	// +kubebuilder:validation:Enum=delta;cumulative;unspecified
 	// +optional
 	Temporality string `json:"temporality,omitempty"`
 
+	// How samples of one series are combined within each step, such as avg, sum, min, max, count, count_distinct, latest, rate or increase.
 	// +kubebuilder:validation:Enum=latest;sum;avg;min;max;count;count_distinct;rate;increase
 	// +optional
 	TimeAggregation string `json:"timeAggregation,omitempty"`
 }
 
 type DashboardComparisonSpaceAggregationParam struct {
+	// Comparison applied to histogram bucket bounds when spaceAggregation is count: <= gives the estimated count of observations at or below threshold, > the estimated count above it.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Operator string `json:"operator"`
 
+	// Bucket bound the comparison uses, in the unit of the histogram metric. The count is exact when threshold equals one of the metric's le bucket bounds, and otherwise an estimate interpolated linearly between the two nearest bounds.
 	// +kubebuilder:validation:Required
 	Threshold float64 `json:"threshold"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
 type DashboardBucketOptions struct {
+	// How the upper bounds are spaced.
 	// +kubebuilder:validation:Enum=linear;log
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
@@ -546,105 +649,130 @@ type DashboardBucketOptions struct {
 }
 
 type DashboardBucketOptionsSpec struct {
+	// The upper bound of the last regular band; values above it are counted in a trailing overflow band.
 	// +optional
 	MaxValue float64 `json:"maxValue,omitempty"`
 
+	// The number of evenly spaced bands between 0 and maxValue. A default applies when omitted or 0.
 	// +optional
 	NumBuckets int64 `json:"numBuckets,omitempty"`
 
+	// The exponential histogram scale: 2^scale bands per doubling of the value. The maximum supported scale applies when omitted.
 	// +optional
-	Scale int64 `json:"scale,omitempty"`
+	Scale *int64 `json:"scale,omitempty"`
 }
 
 type DashboardFilter struct {
+	// A filter in the query filter syntax: comparisons such as =, !=, <, >, IN, LIKE, CONTAINS and EXISTS on field names, combined with AND, OR and NOT, with string values in single quotes, for example key = 'value' AND other_key > 10. Which fields exist depends on the signal or endpoint the filter is used with.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type DashboardFunction struct {
+	// The function arguments; which ones are required depends on the function, for example a threshold for the cutOff and clamp functions.
 	// +optional
 	Args []DashboardArg `json:"args,omitempty"`
 
+	// The function to apply, such as cutOffMin, cutOffMax, clampMin, clampMax, absolute, runningDiff, log2, log10, cumulativeSum, ewma3, ewma5, ewma7, median3, median5, median7, timeShift, anomaly or fillZero.
 	// +kubebuilder:validation:Enum=cutoffmin;cutoffmax;clampmin;clampmax;absolute;runningdiff;log2;log10;cumulativesum;ewma3;ewma5;ewma7;median3;median5;median7;timeshift;anomaly;fillzero
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 type DashboardArg struct {
+	// The argument name for functions that take named arguments, such as z_score_threshold or seasonality for anomaly.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// The argument value as a number, string or boolean, for example the threshold for cutOffMin or the duration for timeShift.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Value *apiextensionsv1.JSON `json:"value,omitempty"`
 }
 
 type DashboardGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardHaving struct {
+	// A condition on aggregation results in the filter syntax, referencing an alias or expression, for example count() > 100.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type DashboardLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type DashboardOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *DashboardKey `json:"key,omitempty"`
 }
 
 type DashboardKey struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
@@ -652,6 +780,7 @@ type DashboardKey struct {
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_query requires spec.signal"
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_ai_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_ai_query requires spec.signal"
 type DashboardQuerySpecPluginSpecQuery struct {
+	// The type of the query.
 	// +kubebuilder:validation:Enum=builder_query;builder_ai_query;builder_formula;builder_trace_operator;promql;clickhouse_sql
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
@@ -694,6 +823,7 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Reserved for applying limit within each combination of the given group-by keys. Accepted but currently ignored.
 	// +optional
 	LimitBy *DashboardQuerySpecPluginSpecQuerySpecLimitBy `json:"limitBy,omitempty"`
 
@@ -709,29 +839,36 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 	// +optional
 	Query string `json:"query,omitempty"`
 
+	// The name of the operand query whose spans are returned; when empty, the spans matched by the whole expression are returned.
 	// +optional
 	ReturnSpansFrom string `json:"returnSpansFrom,omitempty"`
 
+	// Accepted but currently ignored, including their nested order, limit and limitBy.
 	// +optional
 	SecondaryAggregations []DashboardSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
 	SelectFields []DashboardQuerySpecPluginSpecQuerySpecSelectField `json:"selectFields,omitempty"`
 
+	// The telemetry signal to query: traces, logs or metrics. It selects the aggregation shape and is required for builder_query.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// When true, start and end are evaluated as given instead of rounded down to the step, and the result is not cached. Defaults to false.
 	// +optional
 	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
+	// The data source within the signal. Set to meter for Cost Meter metrics; leave empty for regular telemetry.
 	// +kubebuilder:validation:Enum=meter
 	// +optional
 	Source string `json:"source,omitempty"`
 
+	// Reserved; currently has no effect.
 	// +optional
 	Stats bool `json:"stats,omitempty"`
 
+	// The evaluation step: seconds as a number or a Go duration string such as 60s. Derived from the time range when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Step *apiextensionsv1.JSON `json:"step,omitempty"`
@@ -742,30 +879,37 @@ type DashboardQuerySpecPluginSpecQuerySpec struct {
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// Histogram metrics with spaceAggregation count only: the comparison operator and bucket bound used to estimate how many observations fall at or below, or above, the threshold. Ignored for other metric types and aggregations.
 	// +optional
 	ComparisonSpaceAggregationParam *DashboardComparisonSpaceAggregationParam `json:"comparisonSpaceAggregationParam,omitempty"`
 
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The name of the metric to query, for example k8s.pod.cpu_request_utilization.
 	// +optional
 	MetricName string `json:"metricName,omitempty"`
 
+	// How a series collapses to one number in scalar requests: sum, count, avg, min, max, last or median. Ignored by time_series requests.
 	// +kubebuilder:validation:Enum=sum;count;avg;min;max;last;median
 	// +optional
 	ReduceTo string `json:"reduceTo,omitempty"`
 
+	// How series are combined across each group, such as sum, avg, min, max or count; histograms take percentiles such as p50, p90, p95 or p99.
 	// +kubebuilder:validation:Enum=sum;avg;min;max;count;p50;p75;p90;p95;p99
 	// +optional
 	SpaceAggregation string `json:"spaceAggregation,omitempty"`
 
+	// The temporality of the metric: delta, cumulative or unspecified. Resolved from the metric metadata when omitted.
 	// +kubebuilder:validation:Enum=delta;cumulative;unspecified
 	// +optional
 	Temporality string `json:"temporality,omitempty"`
 
+	// How samples of one series are combined within each step, such as avg, sum, min, max, count, count_distinct, latest, rate or increase.
 	// +kubebuilder:validation:Enum=latest;sum;avg;min;max;count;count_distinct;rate;increase
 	// +optional
 	TimeAggregation string `json:"timeAggregation,omitempty"`
@@ -773,6 +917,7 @@ type DashboardQuerySpecPluginSpecQuerySpecAggregation struct {
 
 // +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
 type DashboardQuerySpecPluginSpecQuerySpecBucketOptions struct {
+	// How the upper bounds are spaced.
 	// +kubebuilder:validation:Enum=linear;log
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
@@ -782,202 +927,253 @@ type DashboardQuerySpecPluginSpecQuerySpecBucketOptions struct {
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecBucketOptionsSpec struct {
+	// The upper bound of the last regular band; values above it are counted in a trailing overflow band.
 	// +optional
 	MaxValue float64 `json:"maxValue,omitempty"`
 
+	// The number of evenly spaced bands between 0 and maxValue. A default applies when omitted or 0.
 	// +optional
 	NumBuckets int64 `json:"numBuckets,omitempty"`
 
+	// The exponential histogram scale: 2^scale bands per doubling of the value. The maximum supported scale applies when omitted.
 	// +optional
-	Scale int64 `json:"scale,omitempty"`
+	Scale *int64 `json:"scale,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecFilter struct {
+	// A filter in the query filter syntax: comparisons such as =, !=, <, >, IN, LIKE, CONTAINS and EXISTS on field names, combined with AND, OR and NOT, with string values in single quotes, for example key = 'value' AND other_key > 10. Which fields exist depends on the signal or endpoint the filter is used with.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecFunction struct {
+	// The function arguments; which ones are required depends on the function, for example a threshold for the cutOff and clamp functions.
 	// +optional
 	Args []DashboardArg `json:"args,omitempty"`
 
+	// The function to apply, such as cutOffMin, cutOffMax, clampMin, clampMax, absolute, runningDiff, log2, log10, cumulativeSum, ewma3, ewma5, ewma7, median3, median5, median7, timeShift, anomaly or fillZero.
 	// +kubebuilder:validation:Enum=cutoffmin;cutoffmax;clampmin;clampmax;absolute;runningdiff;log2;log10;cumulativesum;ewma3;ewma5;ewma7;median3;median5;median7;timeshift;anomaly;fillzero
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecHaving struct {
+	// A condition on aggregation results in the filter syntax, referencing an alias or expression, for example count() > 100.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *DashboardKey `json:"key,omitempty"`
 }
 
 type DashboardSecondaryAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// The aggregation over the primary results, such as count(), sum(item_price) or countIf(day > 10).
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The fields to group this aggregation by.
 	// +optional
 	GroupBy []DashboardSecondaryAggregationGroupBy `json:"groupBy,omitempty"`
 
+	// The maximum number of groups to return. Unlimited when 0.
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Applies limit within each distinct combination of the given keys.
 	// +optional
 	LimitBy *DashboardSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
+	// The sort order of this aggregation result.
 	// +optional
 	Order []DashboardSecondaryAggregationOrder `json:"order,omitempty"`
 
+	// The time bucket for this aggregation: seconds as a number or a Go duration string. Uses the primary aggregation step when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
 }
 
 type DashboardSecondaryAggregationGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardSecondaryAggregationLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type DashboardSecondaryAggregationOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *DashboardKey `json:"key,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecQuerySpecSelectField struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardQuerySpecPluginSpecSelectField struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type DashboardLink struct {
+	// The link label.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// Whether dashboard variable values are substituted into url before opening it.
 	// +optional
 	RenderVariables bool `json:"renderVariables,omitempty"`
 
+	// Whether the link opens in a new tab.
 	// +optional
 	TargetBlank bool `json:"targetBlank,omitempty"`
 
+	// Hover text for the link. Stored, but not shown by the UI.
 	// +optional
 	Tooltip string `json:"tooltip,omitempty"`
 
+	// The link target. May reference dashboard variables as {{name}} when renderVariables is true.
 	// +optional
 	Url string `json:"url,omitempty"`
 }
@@ -985,47 +1181,60 @@ type DashboardLink struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'ListVariable' || (has(self.spec.display) && has(self.spec.name))",message="kind ListVariable requires spec.display, spec.name"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'TextVariable' || (has(self.spec.display) && has(self.spec.value) && has(self.spec.name))",message="kind TextVariable requires spec.display, spec.value, spec.name"
 type DashboardVariable struct {
+	// The variable kind.
 	// +kubebuilder:validation:Enum=ListVariable;TextVariable
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The kind-specific variable spec.
 	// +kubebuilder:validation:Required
 	Spec DashboardVariableSpec `json:"spec"`
 }
 
 type DashboardVariableSpec struct {
+	// Whether an all option is offered. Requires allowMultiple.
 	// +optional
 	AllowAllValue bool `json:"allowAllValue,omitempty"`
 
+	// Whether several values can be selected at once.
 	// +optional
 	AllowMultiple bool `json:"allowMultiple,omitempty"`
 
+	// A regular expression meant to keep only matching values, reduced to the capture group when one is present. Stored, but not applied by the UI.
 	// +optional
 	CapturingRegexp string `json:"capturingRegexp,omitempty"`
 
+	// Whether the value is meant to be fixed. Stored, but not applied by the UI.
 	// +optional
 	Constant bool `json:"constant,omitempty"`
 
+	// The value meant to replace every value when all is selected. Requires allowAllValue. Stored, but currently ignored by the UI.
 	// +optional
 	CustomAllValue string `json:"customAllValue,omitempty"`
 
+	// The initially selected value: a string, or a list of strings when allowMultiple is true.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	DefaultValue *apiextensionsv1.JSON `json:"defaultValue,omitempty"`
 
+	// The label shown for the variable control.
 	// +optional
 	Display *DashboardDisplay `json:"display,omitempty"`
 
+	// The handle queries reference as $name. Up to 75 characters from letters, digits, dot, underscore and hyphen, not all digits, unique within the dashboard.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// Where the values come from: kind is signoz/DynamicVariable (observed attribute values), signoz/QueryVariable (a ClickHouse query) or signoz/CustomVariable (a fixed list), and spec holds that kind's settings.
 	// +optional
 	Plugin *DashboardVariableSpecPlugin `json:"plugin,omitempty"`
 
+	// How the values are ordered: none (default), alphabetical-asc, alphabetical-desc, numerical-asc, numerical-desc, alphabetical-ci-asc or alphabetical-ci-desc.
 	// +kubebuilder:validation:Enum=none;alphabetical-asc;alphabetical-desc;numerical-asc;numerical-desc;alphabetical-ci-asc;alphabetical-ci-desc
 	// +optional
 	Sort string `json:"sort,omitempty"`
 
+	// The default text. Must be non-empty when constant is true.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
@@ -1034,24 +1243,30 @@ type DashboardVariableSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'signoz/QueryVariable' || has(self.spec.queryValue)",message="kind signoz/QueryVariable requires spec.queryValue"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'signoz/CustomVariable' || has(self.spec.customValue)",message="kind signoz/CustomVariable requires spec.customValue"
 type DashboardVariableSpecPlugin struct {
+	// The value source kind.
 	// +kubebuilder:validation:Enum=signoz/DynamicVariable;signoz/QueryVariable;signoz/CustomVariable
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The kind-specific value source spec.
 	// +kubebuilder:validation:Required
 	Spec DashboardVariableSpecPluginSpec `json:"spec"`
 }
 
 type DashboardVariableSpecPluginSpec struct {
+	// The fixed values as a comma-separated list, such as 1,10,100.
 	// +optional
 	CustomValue string `json:"customValue,omitempty"`
 
+	// The attribute key whose observed values populate the variable, such as service.name.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// A ClickHouse SQL query returning one column of selectable values; every returned column is offered.
 	// +optional
 	QueryValue string `json:"queryValue,omitempty"`
 
+	// The signal the values are read from: traces, logs, metrics or all (default).
 	// +kubebuilder:validation:Enum=traces;logs;metrics;all
 	// +optional
 	Signal string `json:"signal,omitempty"`

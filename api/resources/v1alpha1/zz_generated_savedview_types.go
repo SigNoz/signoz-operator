@@ -9,40 +9,50 @@ import (
 )
 
 type SavedViewObjectSpec struct {
+	// The version of the spec shape. The only accepted value is v2.
 	// +kubebuilder:validation:Enum=v2
 	// +kubebuilder:validation:Required
 	SchemaVersion string `json:"schemaVersion"`
 
+	// The explorer page the view belongs to: traces, logs, metrics, meter or ai_observability. Builder queries inside spec must use the matching signal; meter views use signal metrics with source meter.
 	// +kubebuilder:validation:Enum=traces;logs;metrics;meter;ai_observability
 	// +kubebuilder:validation:Required
 	Source string `json:"source"`
 
+	// The display name, panel type, request type, queries and column selection of the view.
 	// +kubebuilder:validation:Required
 	Spec SavedViewSpecPayload `json:"spec"`
 
+	// The machine name of the view, a DNS-1123 label (lowercase letters, digits and hyphens, at most 63 characters) unique within the organization. Required unless generateName is true, in which case it must be empty.
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 type SavedViewSpecPayload struct {
+	// The human readable title shown in the explorer. It may differ from the machine name and need not be unique.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	DisplayName string `json:"displayName"`
 
+	// The explorer panel the view renders as: list, graph, table, value or trace.
 	// +kubebuilder:validation:Enum=value;graph;table;list;trace
 	// +kubebuilder:validation:Required
 	PanelType string `json:"panelType"`
 
+	// The query envelopes the view runs, in the v5 query builder shape. At least one is required and the set is validated for the requestType.
 	// +kubebuilder:validation:Required
 	Queries []SavedViewQuery `json:"queries"`
 
+	// The query_range request type the panel issues: raw for list panels, time_series for graphs, scalar for table and value panels, trace for trace panels.
 	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap
 	// +kubebuilder:validation:Required
 	RequestType string `json:"requestType"`
 
+	// Rendering preferences for list panels. All fields are optional.
 	// +optional
 	Display *SavedViewDisplay `json:"display,omitempty"`
 
+	// The columns shown in list panels, each a field key with name and optionally signal, fieldContext and fieldDataType. Send explicit columns for list views: an empty array yields no trace columns and only the required log columns. Use an empty array for graph views.
 	// +optional
 	SelectedFields []SavedViewSelectedField `json:"selectedFields,omitempty"`
 }
@@ -50,6 +60,7 @@ type SavedViewSpecPayload struct {
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_query requires spec.signal"
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_ai_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_ai_query requires spec.signal"
 type SavedViewQuery struct {
+	// The type of the query.
 	// +kubebuilder:validation:Enum=builder_query;builder_ai_query;builder_formula;builder_trace_operator;promql;clickhouse_sql
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
@@ -92,6 +103,7 @@ type SavedViewQuerySpec struct {
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Reserved for applying limit within each combination of the given group-by keys. Accepted but currently ignored.
 	// +optional
 	LimitBy *SavedViewLimitBy `json:"limitBy,omitempty"`
 
@@ -107,29 +119,36 @@ type SavedViewQuerySpec struct {
 	// +optional
 	Query string `json:"query,omitempty"`
 
+	// The name of the operand query whose spans are returned; when empty, the spans matched by the whole expression are returned.
 	// +optional
 	ReturnSpansFrom string `json:"returnSpansFrom,omitempty"`
 
+	// Accepted but currently ignored, including their nested order, limit and limitBy.
 	// +optional
 	SecondaryAggregations []SavedViewSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
 	SelectFields []SavedViewSelectField `json:"selectFields,omitempty"`
 
+	// The telemetry signal to query: traces, logs or metrics. It selects the aggregation shape and is required for builder_query.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// When true, start and end are evaluated as given instead of rounded down to the step, and the result is not cached. Defaults to false.
 	// +optional
 	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
+	// The data source within the signal. Set to meter for Cost Meter metrics; leave empty for regular telemetry.
 	// +kubebuilder:validation:Enum=meter
 	// +optional
 	Source string `json:"source,omitempty"`
 
+	// Reserved; currently has no effect.
 	// +optional
 	Stats bool `json:"stats,omitempty"`
 
+	// The evaluation step: seconds as a number or a Go duration string such as 60s. Derived from the time range when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Step *apiextensionsv1.JSON `json:"step,omitempty"`
@@ -140,46 +159,56 @@ type SavedViewQuerySpec struct {
 }
 
 type SavedViewAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// Histogram metrics with spaceAggregation count only: the comparison operator and bucket bound used to estimate how many observations fall at or below, or above, the threshold. Ignored for other metric types and aggregations.
 	// +optional
 	ComparisonSpaceAggregationParam *SavedViewComparisonSpaceAggregationParam `json:"comparisonSpaceAggregationParam,omitempty"`
 
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The name of the metric to query, for example k8s.pod.cpu_request_utilization.
 	// +optional
 	MetricName string `json:"metricName,omitempty"`
 
+	// How a series collapses to one number in scalar requests: sum, count, avg, min, max, last or median. Ignored by time_series requests.
 	// +kubebuilder:validation:Enum=sum;count;avg;min;max;last;median
 	// +optional
 	ReduceTo string `json:"reduceTo,omitempty"`
 
+	// How series are combined across each group, such as sum, avg, min, max or count; histograms take percentiles such as p50, p90, p95 or p99.
 	// +kubebuilder:validation:Enum=sum;avg;min;max;count;p50;p75;p90;p95;p99
 	// +optional
 	SpaceAggregation string `json:"spaceAggregation,omitempty"`
 
+	// The temporality of the metric: delta, cumulative or unspecified. Resolved from the metric metadata when omitted.
 	// +kubebuilder:validation:Enum=delta;cumulative;unspecified
 	// +optional
 	Temporality string `json:"temporality,omitempty"`
 
+	// How samples of one series are combined within each step, such as avg, sum, min, max, count, count_distinct, latest, rate or increase.
 	// +kubebuilder:validation:Enum=latest;sum;avg;min;max;count;count_distinct;rate;increase
 	// +optional
 	TimeAggregation string `json:"timeAggregation,omitempty"`
 }
 
 type SavedViewComparisonSpaceAggregationParam struct {
+	// Comparison applied to histogram bucket bounds when spaceAggregation is count: <= gives the estimated count of observations at or below threshold, > the estimated count above it.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Operator string `json:"operator"`
 
+	// Bucket bound the comparison uses, in the unit of the histogram metric. The count is exact when threshold equals one of the metric's le bucket bounds, and otherwise an estimate interpolated linearly between the two nearest bounds.
 	// +kubebuilder:validation:Required
 	Threshold float64 `json:"threshold"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
 type SavedViewBucketOptions struct {
+	// How the upper bounds are spaced.
 	// +kubebuilder:validation:Enum=linear;log
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
@@ -189,232 +218,290 @@ type SavedViewBucketOptions struct {
 }
 
 type SavedViewBucketOptionsSpec struct {
+	// The upper bound of the last regular band; values above it are counted in a trailing overflow band.
 	// +optional
 	MaxValue float64 `json:"maxValue,omitempty"`
 
+	// The number of evenly spaced bands between 0 and maxValue. A default applies when omitted or 0.
 	// +optional
 	NumBuckets int64 `json:"numBuckets,omitempty"`
 
+	// The exponential histogram scale: 2^scale bands per doubling of the value. The maximum supported scale applies when omitted.
 	// +optional
-	Scale int64 `json:"scale,omitempty"`
+	Scale *int64 `json:"scale,omitempty"`
 }
 
 type SavedViewFilter struct {
+	// A filter in the query filter syntax: comparisons such as =, !=, <, >, IN, LIKE, CONTAINS and EXISTS on field names, combined with AND, OR and NOT, with string values in single quotes, for example key = 'value' AND other_key > 10. Which fields exist depends on the signal or endpoint the filter is used with.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type SavedViewFunction struct {
+	// The function arguments; which ones are required depends on the function, for example a threshold for the cutOff and clamp functions.
 	// +optional
 	Args []SavedViewArg `json:"args,omitempty"`
 
+	// The function to apply, such as cutOffMin, cutOffMax, clampMin, clampMax, absolute, runningDiff, log2, log10, cumulativeSum, ewma3, ewma5, ewma7, median3, median5, median7, timeShift, anomaly or fillZero.
 	// +kubebuilder:validation:Enum=cutoffmin;cutoffmax;clampmin;clampmax;absolute;runningdiff;log2;log10;cumulativesum;ewma3;ewma5;ewma7;median3;median5;median7;timeshift;anomaly;fillzero
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 type SavedViewArg struct {
+	// The argument name for functions that take named arguments, such as z_score_threshold or seasonality for anomaly.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// The argument value as a number, string or boolean, for example the threshold for cutOffMin or the duration for timeShift.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Value *apiextensionsv1.JSON `json:"value,omitempty"`
 }
 
 type SavedViewGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type SavedViewHaving struct {
+	// A condition on aggregation results in the filter syntax, referencing an alias or expression, for example count() > 100.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type SavedViewLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type SavedViewOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *SavedViewKey `json:"key,omitempty"`
 }
 
 type SavedViewKey struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type SavedViewSecondaryAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// The aggregation over the primary results, such as count(), sum(item_price) or countIf(day > 10).
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The fields to group this aggregation by.
 	// +optional
 	GroupBy []SavedViewSecondaryAggregationGroupBy `json:"groupBy,omitempty"`
 
+	// The maximum number of groups to return. Unlimited when 0.
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Applies limit within each distinct combination of the given keys.
 	// +optional
 	LimitBy *SavedViewSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
+	// The sort order of this aggregation result.
 	// +optional
 	Order []SavedViewSecondaryAggregationOrder `json:"order,omitempty"`
 
+	// The time bucket for this aggregation: seconds as a number or a Go duration string. Uses the primary aggregation step when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
 }
 
 type SavedViewSecondaryAggregationGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type SavedViewSecondaryAggregationLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type SavedViewSecondaryAggregationOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *SavedViewKey `json:"key,omitempty"`
 }
 
 type SavedViewSelectField struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type SavedViewDisplay struct {
+	// A CSS color such as a hex code, shown as the view's color in the explorer view picker; the saved views panel does not use it. Empty leaves the default.
 	// +optional
 	Color string `json:"color,omitempty"`
 
+	// The row font size in list views: small, medium or large. Empty leaves the explorer default.
 	// +optional
 	FontSize string `json:"fontSize,omitempty"`
 
+	// The list rendering mode in the logs explorer: raw, table or list. Empty leaves the explorer default.
 	// +optional
 	Format string `json:"format,omitempty"`
 
+	// The number of lines shown per row before the body is truncated in logs list views. 0 leaves the explorer default.
 	// +optional
 	MaxLines int64 `json:"maxLines,omitempty"`
 }
 
 type SavedViewSelectedField struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }

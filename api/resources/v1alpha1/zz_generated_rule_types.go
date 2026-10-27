@@ -9,87 +9,111 @@ import (
 )
 
 type RuleObjectSpec struct {
+	// The display name of the alert rule.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Alert string `json:"alert"`
 
+	// The signal the rule evaluates: METRIC_BASED_ALERT, TRACES_BASED_ALERT, LOGS_BASED_ALERT, EXCEPTIONS_BASED_ALERT or AI_TRACES_BASED_ALERT.
 	// +kubebuilder:validation:Enum=METRIC_BASED_ALERT;TRACES_BASED_ALERT;LOGS_BASED_ALERT;EXCEPTIONS_BASED_ALERT;AI_TRACES_BASED_ALERT
 	// +kubebuilder:validation:Required
 	AlertType string `json:"alertType"`
 
+	// The query to evaluate and the thresholds applied to its result.
 	// +kubebuilder:validation:Required
 	Condition RuleCondition `json:"condition"`
 
+	// The evaluation window, as a kind and spec. Required when schemaVersion is v2alpha1; derived from evalWindow and frequency for v1.
 	// +kubebuilder:validation:Required
 	Evaluation RuleEvaluation `json:"evaluation"`
 
+	// Grouping, re-notification and routing behaviour. Required when schemaVersion is v2alpha1; derived from the v1 fields otherwise.
 	// +kubebuilder:validation:Required
 	NotificationSettings RuleNotificationSettings `json:"notificationSettings"`
 
+	// The evaluation strategy: threshold_rule compares against thresholds, promql_rule evaluates a PromQL expression, anomaly_rule scores deviation from seasonal history. Defaults to threshold_rule for builder queries and is forced to promql_rule for promql queries.
 	// +kubebuilder:validation:Enum=threshold_rule;promql_rule;anomaly_rule
 	// +kubebuilder:validation:Required
 	RuleType string `json:"ruleType"`
 
+	// The rule payload schema: v1 (the default when omitted) uses the flat condition fields, v2alpha1 uses condition.thresholds, evaluation and notificationSettings.
 	// +kubebuilder:validation:Enum=v2alpha1
 	// +kubebuilder:validation:Required
 	SchemaVersion string `json:"schemaVersion"`
 
+	// Free text attached to every alert, conventionally summary and description. Values may use Go templates with $value, $threshold and $labels.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
+	// A human readable description of what the rule monitors.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Whether the rule is paused. A disabled rule is neither evaluated nor notifies. Defaults to false.
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
 
+	// Labels attached to every alert the rule fires. Keys match [a-zA-Z_.][a-zA-Z0-9_.]*; values may use Go templates such as {{$labels.service_name}}. severity is the conventional routing label.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type RuleCondition struct {
+	// The queries whose result is compared against the thresholds.
 	// +kubebuilder:validation:Required
 	CompositeQuery RuleCompositeQuery `json:"compositeQuery"`
 
+	// The name of the query whose result is evaluated, such as A or F1. Must match a query in compositeQuery. When omitted, F1 is used if present, otherwise the enabled query with the highest name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	SelectedQueryName string `json:"selectedQueryName"`
 
+	// The thresholds to evaluate, as a kind and spec. Required when schemaVersion is v2alpha1; derived from op, target and matchType for v1.
 	// +kubebuilder:validation:Required
 	Thresholds RuleThresholds `json:"thresholds"`
 
+	// How many minutes without data pass before the nodata alert fires. Ignored unless alertOnAbsent is true.
 	// +optional
 	AbsentFor int64 `json:"absentFor,omitempty"`
 
+	// Whether to fire a nodata alert when the query returns no data. Defaults to false.
 	// +optional
 	AlertOnAbsent bool `json:"alertOnAbsent,omitempty"`
 
+	// anomaly_rule only: the anomaly detection algorithm. The supported value is standard.
 	// +optional
 	Algorithm string `json:"algorithm,omitempty"`
 
+	// Whether a series is skipped until it has at least requiredNumPoints points in the window. Defaults to false.
 	// +optional
 	RequireMinPoints bool `json:"requireMinPoints,omitempty"`
 
+	// The minimum number of points a series needs before it is evaluated. Must be greater than 0 when requireMinPoints is true.
 	// +optional
 	RequiredNumPoints int64 `json:"requiredNumPoints,omitempty"`
 
+	// anomaly_rule only: the seasonal period the history is compared against, hourly, daily or weekly.
 	// +kubebuilder:validation:Enum=hourly;daily;weekly
 	// +optional
 	Seasonality string `json:"seasonality,omitempty"`
 }
 
 type RuleCompositeQuery struct {
+	// The panel the UI renders the queries with: graph, table or value. Use graph for alerts.
 	// +kubebuilder:validation:Enum=value;table;graph
 	// +kubebuilder:validation:Required
 	PanelType string `json:"panelType"`
 
+	// The queries to evaluate, at least one. Every envelope type must match queryType: builder_query and builder_formula for builder, promql for promql, clickhouse_sql for clickhouse_sql.
 	// +kubebuilder:validation:Required
 	Queries []RuleQuery `json:"queries"`
 
+	// The query language of every query: builder, promql or clickhouse_sql.
 	// +kubebuilder:validation:Enum=builder;clickhouse_sql;promql
 	// +kubebuilder:validation:Required
 	QueryType string `json:"queryType"`
 
+	// The unit of the query result, such as percent, ms or bytes. Used to format values in notifications and to convert thresholds given in a different targetUnit.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
@@ -97,6 +121,7 @@ type RuleCompositeQuery struct {
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_query requires spec.signal"
 // +kubebuilder:validation:XValidation:rule="self.type != 'builder_ai_query' || !has(self.spec) || has(self.spec.signal)",message="type builder_ai_query requires spec.signal"
 type RuleQuery struct {
+	// The type of the query.
 	// +kubebuilder:validation:Enum=builder_query;builder_ai_query;builder_formula;builder_trace_operator;promql;clickhouse_sql
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
@@ -139,6 +164,7 @@ type RuleQuerySpec struct {
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Reserved for applying limit within each combination of the given group-by keys. Accepted but currently ignored.
 	// +optional
 	LimitBy *RuleLimitBy `json:"limitBy,omitempty"`
 
@@ -154,29 +180,36 @@ type RuleQuerySpec struct {
 	// +optional
 	Query string `json:"query,omitempty"`
 
+	// The name of the operand query whose spans are returned; when empty, the spans matched by the whole expression are returned.
 	// +optional
 	ReturnSpansFrom string `json:"returnSpansFrom,omitempty"`
 
+	// Accepted but currently ignored, including their nested order, limit and limitBy.
 	// +optional
 	SecondaryAggregations []RuleSecondaryAggregation `json:"secondaryAggregations,omitempty"`
 
 	// +optional
 	SelectFields []RuleSelectField `json:"selectFields,omitempty"`
 
+	// The telemetry signal to query: traces, logs or metrics. It selects the aggregation shape and is required for builder_query.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// When true, start and end are evaluated as given instead of rounded down to the step, and the result is not cached. Defaults to false.
 	// +optional
 	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
+	// The data source within the signal. Set to meter for Cost Meter metrics; leave empty for regular telemetry.
 	// +kubebuilder:validation:Enum=meter
 	// +optional
 	Source string `json:"source,omitempty"`
 
+	// Reserved; currently has no effect.
 	// +optional
 	Stats bool `json:"stats,omitempty"`
 
+	// The evaluation step: seconds as a number or a Go duration string such as 60s. Derived from the time range when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Step *apiextensionsv1.JSON `json:"step,omitempty"`
@@ -187,46 +220,56 @@ type RuleQuerySpec struct {
 }
 
 type RuleAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// Histogram metrics with spaceAggregation count only: the comparison operator and bucket bound used to estimate how many observations fall at or below, or above, the threshold. Ignored for other metric types and aggregations.
 	// +optional
 	ComparisonSpaceAggregationParam *RuleComparisonSpaceAggregationParam `json:"comparisonSpaceAggregationParam,omitempty"`
 
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The name of the metric to query, for example k8s.pod.cpu_request_utilization.
 	// +optional
 	MetricName string `json:"metricName,omitempty"`
 
+	// How a series collapses to one number in scalar requests: sum, count, avg, min, max, last or median. Ignored by time_series requests.
 	// +kubebuilder:validation:Enum=sum;count;avg;min;max;last;median
 	// +optional
 	ReduceTo string `json:"reduceTo,omitempty"`
 
+	// How series are combined across each group, such as sum, avg, min, max or count; histograms take percentiles such as p50, p90, p95 or p99.
 	// +kubebuilder:validation:Enum=sum;avg;min;max;count;p50;p75;p90;p95;p99
 	// +optional
 	SpaceAggregation string `json:"spaceAggregation,omitempty"`
 
+	// The temporality of the metric: delta, cumulative or unspecified. Resolved from the metric metadata when omitted.
 	// +kubebuilder:validation:Enum=delta;cumulative;unspecified
 	// +optional
 	Temporality string `json:"temporality,omitempty"`
 
+	// How samples of one series are combined within each step, such as avg, sum, min, max, count, count_distinct, latest, rate or increase.
 	// +kubebuilder:validation:Enum=latest;sum;avg;min;max;count;count_distinct;rate;increase
 	// +optional
 	TimeAggregation string `json:"timeAggregation,omitempty"`
 }
 
 type RuleComparisonSpaceAggregationParam struct {
+	// Comparison applied to histogram bucket bounds when spaceAggregation is count: <= gives the estimated count of observations at or below threshold, > the estimated count above it.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Operator string `json:"operator"`
 
+	// Bucket bound the comparison uses, in the unit of the histogram metric. The count is exact when threshold equals one of the metric's le bucket bounds, and otherwise an estimate interpolated linearly between the two nearest bounds.
 	// +kubebuilder:validation:Required
 	Threshold float64 `json:"threshold"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
 type RuleBucketOptions struct {
+	// How the upper bounds are spaced.
 	// +kubebuilder:validation:Enum=linear;log
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
@@ -236,229 +279,286 @@ type RuleBucketOptions struct {
 }
 
 type RuleBucketOptionsSpec struct {
+	// The upper bound of the last regular band; values above it are counted in a trailing overflow band.
 	// +optional
 	MaxValue float64 `json:"maxValue,omitempty"`
 
+	// The number of evenly spaced bands between 0 and maxValue. A default applies when omitted or 0.
 	// +optional
 	NumBuckets int64 `json:"numBuckets,omitempty"`
 
+	// The exponential histogram scale: 2^scale bands per doubling of the value. The maximum supported scale applies when omitted.
 	// +optional
-	Scale int64 `json:"scale,omitempty"`
+	Scale *int64 `json:"scale,omitempty"`
 }
 
 type RuleFilter struct {
+	// A filter in the query filter syntax: comparisons such as =, !=, <, >, IN, LIKE, CONTAINS and EXISTS on field names, combined with AND, OR and NOT, with string values in single quotes, for example key = 'value' AND other_key > 10. Which fields exist depends on the signal or endpoint the filter is used with.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type RuleFunction struct {
+	// The function arguments; which ones are required depends on the function, for example a threshold for the cutOff and clamp functions.
 	// +optional
 	Args []RuleArg `json:"args,omitempty"`
 
+	// The function to apply, such as cutOffMin, cutOffMax, clampMin, clampMax, absolute, runningDiff, log2, log10, cumulativeSum, ewma3, ewma5, ewma7, median3, median5, median7, timeShift, anomaly or fillZero.
 	// +kubebuilder:validation:Enum=cutoffmin;cutoffmax;clampmin;clampmax;absolute;runningdiff;log2;log10;cumulativesum;ewma3;ewma5;ewma7;median3;median5;median7;timeshift;anomaly;fillzero
 	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 type RuleArg struct {
+	// The argument name for functions that take named arguments, such as z_score_threshold or seasonality for anomaly.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// The argument value as a number, string or boolean, for example the threshold for cutOffMin or the duration for timeShift.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Value *apiextensionsv1.JSON `json:"value,omitempty"`
 }
 
 type RuleGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type RuleHaving struct {
+	// A condition on aggregation results in the filter syntax, referencing an alias or expression, for example count() > 100.
 	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
 type RuleLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type RuleOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *RuleKey `json:"key,omitempty"`
 }
 
 type RuleKey struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type RuleSecondaryAggregation struct {
+	// The name the aggregation is reported under; when omitted, the result carries the alias __result_N, with N the zero-based index of the aggregation.
 	// +optional
 	Alias string `json:"alias,omitempty"`
 
+	// The aggregation over the primary results, such as count(), sum(item_price) or countIf(day > 10).
 	// +optional
 	Expression string `json:"expression,omitempty"`
 
+	// The fields to group this aggregation by.
 	// +optional
 	GroupBy []RuleSecondaryAggregationGroupBy `json:"groupBy,omitempty"`
 
+	// The maximum number of groups to return. Unlimited when 0.
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
 
+	// Applies limit within each distinct combination of the given keys.
 	// +optional
 	LimitBy *RuleSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
+	// The sort order of this aggregation result.
 	// +optional
 	Order []RuleSecondaryAggregationOrder `json:"order,omitempty"`
 
+	// The time bucket for this aggregation: seconds as a number or a Go duration string. Uses the primary aggregation step when omitted.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
 }
 
 type RuleSecondaryAggregationGroupBy struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type RuleSecondaryAggregationLimitBy struct {
+	// The group-by field names that partition the result before the limit is applied.
 	// +optional
 	Keys []string `json:"keys,omitempty"`
 
+	// The aggregation alias or expression whose value ranks entries within each partition.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type RuleSecondaryAggregationOrder struct {
+	// The sort direction: asc or desc.
 	// +kubebuilder:validation:Enum=asc;desc
 	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// The sort key. For aggregation requests name is a group-by field such as service.name, an aggregation alias, or the aggregation expression: count() or p99(duration_nano) for traces and logs; for metrics the spaceAggregation(timeAggregation(metricName)) form such as sum(rate(signoz_calls_total)), p99(metricName) for histogram metrics, or __result. Raw requests sort by any field, such as timestamp.
 	// +optional
 	Key *RuleKey `json:"key,omitempty"`
 }
 
 type RuleSelectField struct {
+	// The field name, such as service.name, k8s.pod.name or http.response.status_code. Dots are part of the name, and the names available depend on the signal and the data ingested.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// Human-readable summary of the field, present only for well-known fields.
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// Where the field lives: resource, attribute, scope, span, trace, log, body or metric. Empty means unspecified, so the server resolves it.
 	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
+	// Data type of the field values: string, bool, int64, float64 or number. Empty means unspecified.
 	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
 	// +optional
 	FieldDataType string `json:"fieldDataType,omitempty"`
 
+	// The signal the field belongs to: traces, logs or metrics. Empty means any signal.
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
 
+	// Unit of the field values, present only for well-known fields.
 	// +optional
 	Unit string `json:"unit,omitempty"`
 }
 
 type RuleThresholds struct {
+	// The kind of threshold.
 	// +kubebuilder:validation:Enum=basic
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The basic threshold specification (array of thresholds).
 	// +kubebuilder:validation:Required
 	Spec []RuleThresholdsSpec `json:"spec"`
 }
 
 type RuleThresholdsSpec struct {
+	// Which points in the window must satisfy op. Accepted as at_least_once, all_the_times, on_average, in_total or last, their aliases avg and sum, or the legacy codes as strings, '1' to '5'.
 	// +kubebuilder:validation:Enum=at_least_once;all_the_times;on_average;in_total;last
 	// +kubebuilder:validation:Required
 	MatchType string `json:"matchType"`
 
+	// The threshold name, conventionally critical, error, warning or info. Alerts carry it as the threshold.name label and, lowercased, as the severity label; templates can read it as $threshold.name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
+	// How the value is compared with target. Accepted as above, below, equal, not_equal, above_or_equal, below_or_equal or outside_bounds, their symbols, or the legacy codes as strings, '1' to '7'.
 	// +kubebuilder:validation:Enum=above;below;equal;not_equal;above_or_equal;below_or_equal;outside_bounds
 	// +kubebuilder:validation:Required
 	Op string `json:"op"`
 
+	// The value the query result is compared against, in targetUnit.
 	// +kubebuilder:validation:Required
 	Target float64 `json:"target"`
 
+	// The displayName of each notification channel alerts crossing this threshold are sent to. Ignored when notificationSettings.usePolicy is true.
 	// +optional
 	Channels []string `json:"channels,omitempty"`
 
+	// The value at which a firing alert resolves, in targetUnit. Keeps an alert firing between target and recoveryTarget to avoid flapping; null resolves at target.
 	// +optional
-	RecoveryTarget float64 `json:"recoveryTarget,omitempty"`
+	RecoveryTarget *float64 `json:"recoveryTarget,omitempty"`
 
+	// The unit of target and recoveryTarget, such as percent or ms. Converted to the query unit before comparison when the two differ; empty means the query unit.
 	// +optional
 	TargetUnit string `json:"targetUnit,omitempty"`
 }
@@ -466,6 +566,7 @@ type RuleThresholdsSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'rolling' || (has(self.spec.evalWindow) && has(self.spec.frequency))",message="kind rolling requires spec.evalWindow, spec.frequency"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'cumulative' || (has(self.spec.schedule) && has(self.spec.frequency) && has(self.spec.timezone))",message="kind cumulative requires spec.schedule, spec.frequency, spec.timezone"
 type RuleEvaluation struct {
+	// The kind of evaluation.
 	// +kubebuilder:validation:Enum=rolling;cumulative
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
@@ -475,58 +576,74 @@ type RuleEvaluation struct {
 }
 
 type RuleEvaluationSpec struct {
+	// The sliding lookback window each evaluation queries, as a Go duration such as 5m.
 	// +optional
 	EvalWindow string `json:"evalWindow,omitempty"`
 
+	// How often the rule is evaluated, as a Go duration such as 1m. Must be positive.
 	// +optional
 	Frequency string `json:"frequency,omitempty"`
 
+	// The boundary the accumulation window starts from. Each evaluation queries from the most recent boundary to now.
 	// +optional
 	Schedule *RuleSchedule `json:"schedule,omitempty"`
 
+	// The IANA time zone the schedule is resolved in, such as UTC or Asia/Kolkata.
 	// +optional
 	Timezone string `json:"timezone,omitempty"`
 }
 
 type RuleSchedule struct {
+	// How often the window resets: hourly, daily, weekly or monthly.
 	// +kubebuilder:validation:Enum=hourly;daily;weekly;monthly
 	// +kubebuilder:validation:Required
 	Type string `json:"type"`
 
+	// The day of the month of the reset boundary, 1 to 31. Required for monthly.
 	// +optional
-	Day int64 `json:"day,omitempty"`
+	Day *int64 `json:"day,omitempty"`
 
+	// The hour of the reset boundary, 0 to 23. Required for daily, weekly and monthly.
 	// +optional
-	Hour int64 `json:"hour,omitempty"`
+	Hour *int64 `json:"hour,omitempty"`
 
+	// The minute of the reset boundary, 0 to 59. Required for every type.
 	// +optional
-	Minute int64 `json:"minute,omitempty"`
+	Minute *int64 `json:"minute,omitempty"`
 
+	// The weekday of the reset boundary, 0 (Sunday) to 6 (Saturday). Required for weekly.
 	// +optional
-	Weekday int64 `json:"weekday,omitempty"`
+	Weekday *int64 `json:"weekday,omitempty"`
 }
 
 type RuleNotificationSettings struct {
+	// Label names whose values group alerts into one notification, such as service.name.
 	// +optional
 	GroupBy []string `json:"groupBy,omitempty"`
 
+	// A grace period, as a Go duration such as 2m, during which a newly seen label group is excluded from evaluation. Applies to metric rules only; log and trace rules are never delayed. A group whose values are not yet known is evaluated immediately.
 	// +optional
 	NewGroupEvalDelay string `json:"newGroupEvalDelay,omitempty"`
 
+	// Whether and how often to re-send a notification for an alert that stays active.
 	// +optional
 	Renotify *RuleRenotify `json:"renotify,omitempty"`
 
+	// When true, alerts are routed by the organisation level notification policies instead of the channels named on the thresholds. Defaults to false.
 	// +optional
 	UsePolicy bool `json:"usePolicy,omitempty"`
 }
 
 type RuleRenotify struct {
+	// The alert states that are re-notified: firing, nodata or both.
 	// +optional
 	AlertStates []string `json:"alertStates,omitempty"`
 
+	// Whether an active alert is re-sent after interval elapses. When false an alert notifies once per firing.
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
 
+	// The time between repeat notifications, as a Go duration such as 4h. Must be positive when enabled is true.
 	// +optional
 	Interval string `json:"interval,omitempty"`
 }
