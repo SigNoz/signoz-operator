@@ -9,12 +9,15 @@ import (
 )
 
 type NotificationChannelObjectSpec struct {
+	// The provider kind and its spec.
 	// +kubebuilder:validation:Required
 	Config NotificationChannelConfig `json:"config"`
 
+	// The label shown in the UI. Alert rules and routing policies reference it, not name. Defaults to name; required when generateName is true.
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
+	// The immutable DNS-1123 identifier of the channel (lowercase letters, digits and hyphens, at most 63 characters). Required unless generateName is true, in which case it must be empty. Alert rules and routing policies reference displayName, not name.
 	// +optional
 	Name string `json:"name,omitempty"`
 }
@@ -31,54 +34,66 @@ type NotificationChannelObjectSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'incidentio' || (has(self.spec.url) && has(self.spec.token))",message="kind incidentio requires spec.url, spec.token"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'telegram' || (has(self.spec.botToken) && has(self.spec.chatId))",message="kind telegram requires spec.botToken, spec.chatId"
 type NotificationChannelConfig struct {
+	// The channel provider kind this variant accepts.
 	// +kubebuilder:validation:Enum=slack;email;webhook;pagerduty;opsgenie;msteams;googlechat;jira;jsmops;incidentio;telegram
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
+	// The provider-specific configuration for this kind.
 	// +kubebuilder:validation:Required
 	Spec NotificationChannelConfigSpec `json:"spec"`
 }
 
 type NotificationChannelConfigSpec struct {
+	// Attachment buttons; each requires type and text plus url or name.
 	// +optional
 	Actions []NotificationChannelAction `json:"actions,omitempty"`
 
 	// +optional
 	ApiKey string `json:"apiKey,omitempty"`
 
+	// The Atlassian API token paired with email. A secret; returned by create, update and fetch by ID, never by list.
 	// +optional
 	ApiToken string `json:"apiToken,omitempty"`
 
 	// +optional
 	ApiUrl string `json:"apiUrl,omitempty"`
 
+	// The bearer token sent in the Authorization header; cannot be combined with username or password.
 	// +optional
 	BearerToken string `json:"bearerToken,omitempty"`
 
 	// +optional
 	BotToken string `json:"botToken,omitempty"`
 
+	// The channel or user to post to, such as #alerts; empty uses the webhook default.
 	// +optional
 	Channel string `json:"channel,omitempty"`
 
 	// +optional
 	ChatId int64 `json:"chatId,omitempty"`
 
+	// The class or type of the event.
 	// +optional
 	Class string `json:"class,omitempty"`
 
+	// Alertmanager template for the client identifier; defaults to the Alertmanager PagerDuty default.
 	// +optional
 	Client string `json:"client,omitempty"`
 
+	// Alertmanager template for the client URL; defaults to the Alertmanager PagerDuty default.
 	// +optional
 	ClientUrl string `json:"clientUrl,omitempty"`
 
+	// Alertmanager template for the attachment color; defaults to the Alertmanager Slack default.
 	// +optional
 	Color string `json:"color,omitempty"`
 
+	// The component of the source machine that is responsible for the event.
 	// +optional
 	Component string `json:"component,omitempty"`
 
+	// Extra issue fields keyed by Jira field ID. Stored, but not currently included in the issue Jira receives.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	CustomFields *apiextensionsv1.JSON `json:"customFields,omitempty"`
@@ -92,30 +107,39 @@ type NotificationChannelConfigSpec struct {
 	// +optional
 	DisableNotifications bool `json:"disableNotifications,omitempty"`
 
+	// The Atlassian account email used for basic auth.
 	// +optional
 	Email string `json:"email,omitempty"`
 
+	// Alertmanager template for the plain-text summary shown where attachments cannot render; defaults to the Alertmanager Slack default.
 	// +optional
 	Fallback string `json:"fallback,omitempty"`
 
+	// Attachment fields appended to the message; each requires title and value.
 	// +optional
 	Fields []NotificationChannelField `json:"fields,omitempty"`
 
+	// Alertmanager template for the attachment footer; defaults to the Alertmanager Slack default.
 	// +optional
 	Footer string `json:"footer,omitempty"`
 
+	// The logical grouping of components the event belongs to.
 	// +optional
 	Group string `json:"group,omitempty"`
 
+	// Extra SMTP headers keyed by canonical MIME header name, such as Subject.
 	// +optional
 	Headers map[string]string `json:"headers,omitempty"`
 
+	// Alertmanager template for the HTML body; defaults to the Alertmanager email default.
 	// +optional
 	Html string `json:"html,omitempty"`
 
+	// The issue type name, such as Bug.
 	// +optional
 	IssueType string `json:"issueType,omitempty"`
 
+	// Labels added to every issue.
 	// +optional
 	Labels []string `json:"labels,omitempty"`
 
@@ -125,48 +149,60 @@ type NotificationChannelConfigSpec struct {
 	// +optional
 	MessageThreadId int64 `json:"messageThreadId,omitempty"`
 
+	// Extra event metadata keyed by name, merged over the group's common labels; values are Alertmanager templates.
 	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
 
+	// The basic auth password; cannot be combined with bearerToken.
 	// +optional
 	Password string `json:"password,omitempty"`
 
+	// Alertmanager template for the text shown above the attachment; defaults to the Alertmanager Slack default.
 	// +optional
 	Pretext string `json:"pretext,omitempty"`
 
 	// +optional
 	Priority string `json:"priority,omitempty"`
 
+	// The key of the project issues are created in.
 	// +optional
 	Project string `json:"project,omitempty"`
 
+	// How long after resolution a firing alert reopens the issue instead of creating a new one, as a Prometheus duration in canonical form such as 3d; defaults to 3d.
 	// +optional
 	ReopenDuration string `json:"reopenDuration,omitempty"`
 
+	// The transition applied when an alert fires again on a resolved issue.
 	// +optional
 	ReopenTransition string `json:"reopenTransition,omitempty"`
 
+	// The transition applied to the issue when the alert resolves.
 	// +optional
 	ResolveTransition string `json:"resolveTransition,omitempty"`
 
+	// The Events API v2 integration key. A secret; returned by create, update and fetch by ID, never by list.
 	// +optional
 	RoutingKey string `json:"routingKey,omitempty"`
 
 	// +optional
-	SendResolved bool `json:"sendResolved,omitempty"`
+	SendResolved *bool `json:"sendResolved,omitempty"`
 
+	// The incident severity: critical, error, warning or info.
 	// +optional
 	Severity string `json:"severity,omitempty"`
 
+	// The base URL of the Jira Cloud site, for example https://example.atlassian.net. Only Jira Cloud is supported.
 	// +optional
 	Site string `json:"site,omitempty"`
 
 	// +optional
 	Source string `json:"source,omitempty"`
 
+	// Alertmanager template for the issue summary; defaults to the SigNoz Jira default.
 	// +optional
 	Summary string `json:"summary,omitempty"`
 
+	// Comma-separated tags attached to the alert; defaults to signoz.
 	// +optional
 	Tags string `json:"tags,omitempty"`
 
@@ -176,79 +212,98 @@ type NotificationChannelConfigSpec struct {
 	// +optional
 	Title string `json:"title,omitempty"`
 
+	// Alertmanager template for the link the title opens; defaults to the Alertmanager Slack default.
 	// +optional
 	TitleLink string `json:"titleLink,omitempty"`
 
+	// The recipient addresses, comma separated.
 	// +optional
 	To string `json:"to,omitempty"`
 
+	// The alert source secret token, without the Bearer prefix. A secret; returned by create, update and fetch by ID, never by list.
 	// +optional
 	Token string `json:"token,omitempty"`
 
 	// +optional
 	Url string `json:"url,omitempty"`
 
+	// The basic auth user; cannot be combined with bearerToken.
 	// +optional
 	Username string `json:"username,omitempty"`
 
 	// +optional
 	WebhookUrl string `json:"webhookUrl,omitempty"`
 
+	// The resolution name that stops an issue from being reopened.
 	// +optional
 	WontFixResolution string `json:"wontFixResolution,omitempty"`
 }
 
 type NotificationChannelAction struct {
+	// The button label.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Text string `json:"text"`
 
+	// The Slack action type, normally button.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Type string `json:"type"`
 
+	// A confirmation dialog shown before the action runs.
 	// +optional
 	Confirm *NotificationChannelConfirm `json:"confirm,omitempty"`
 
+	// The action name Slack posts back for a message button; required unless url is set.
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// The button style: default, primary or danger.
 	// +optional
 	Style string `json:"style,omitempty"`
 
+	// The link the button opens; required unless name is set.
 	// +optional
 	Url string `json:"url,omitempty"`
 
+	// The value Slack posts back with a message button.
 	// +optional
 	Value string `json:"value,omitempty"`
 }
 
 type NotificationChannelConfirm struct {
+	// The dialog body.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Text string `json:"text"`
 
+	// The label of the cancel button.
 	// +optional
 	DismissText string `json:"dismissText,omitempty"`
 
+	// The label of the confirm button.
 	// +optional
 	OkText string `json:"okText,omitempty"`
 
+	// The dialog title.
 	// +optional
 	Title string `json:"title,omitempty"`
 }
 
 type NotificationChannelField struct {
+	// The field title.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Title string `json:"title"`
 
+	// The field value; an Alertmanager template.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Value string `json:"value"`
 
+	// Render the field side by side with other short fields.
 	// +optional
-	Short bool `json:"short,omitempty"`
+	Short *bool `json:"short,omitempty"`
 }
 
 // +kubebuilder:validation:MinProperties=1

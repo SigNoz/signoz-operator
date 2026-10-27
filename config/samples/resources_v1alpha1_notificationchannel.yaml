@@ -30,9 +30,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: signoz-operator
 spec:
-  # jsonSpec form: the SigNoz request body, sent verbatim. It can carry
-  # "sendResolved": false, which the typed form drops for kinds that default
-  # it to true.
+  # jsonSpec form: the SigNoz request body, sent verbatim, such as one copied
+  # from the SigNoz API.
   objectTemplate:
     jsonSpec: |-
       {
