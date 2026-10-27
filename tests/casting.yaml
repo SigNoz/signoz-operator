@@ -1,0 +1,15 @@
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: kustomize
+    mode: kubernetes
+  signoz:
+    spec:
+      env:
+        SIGNOZ_STATSREPORTER_ENABLED: "false"
+        SIGNOZ_USER_ROOT_EMAIL: "admin@e2e.test"
+        SIGNOZ_USER_ROOT_ENABLED: "true"
+        SIGNOZ_USER_ROOT_PASSWORD: "password123Z$"

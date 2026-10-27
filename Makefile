@@ -16,7 +16,7 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 .PHONY: checks
-checks: go-checks controllergen-checks kyaml-checks
+checks: go-checks controllergen-checks kyaml-checks py-checks
 
 .PHONY: controllergen-checks
 controllergen-checks: ## Runs controllergen checks.
@@ -33,3 +33,30 @@ go-checks: ## Runs go checks.
 	@make -f "$$PRIMUS_HOME/src/make/main.mk" go-deps
 	@make -f "$$PRIMUS_HOME/src/make/main.mk" go-lint
 	@make -f "$$PRIMUS_HOME/src/make/main.mk" go-test
+
+.PHONY: py-checks
+py-checks: ## Runs python checks for the e2e suite.
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-fmt PY_SRC=tests
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-deps PY_SRC=tests
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-lint PY_SRC=tests
+
+##@ E2E
+
+# Narrows a run to one file or test, as a path relative to tests/.
+E2E_TARGET ?=
+
+.PHONY: test-e2e
+test-e2e: ## Runs the e2e suite in a Kind cluster, and removes the cluster afterwards.
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-test PY_SRC=tests PY_TEST_FLAGS='$(E2E_TARGET)'
+
+.PHONY: test-e2e-reuse
+test-e2e-reuse: ## Runs the e2e suite and keeps the cluster for the next --reuse run.
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-test PY_SRC=tests PY_TEST_FLAGS='--reuse $(E2E_TARGET)'
+
+.PHONY: setup-e2e-env
+setup-e2e-env: ## Brings the e2e environment up and keeps it, without running the behaviour tests.
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-test PY_SRC=tests PY_TEST_FLAGS='--reuse e2e/bootstrap/setup.py'
+
+.PHONY: cleanup-test-e2e
+cleanup-test-e2e: ## Deletes the e2e environment a --reuse run left behind.
+	@make -f "$$PRIMUS_HOME/src/make/main.mk" py-test PY_SRC=tests PY_TEST_FLAGS='--teardown e2e/bootstrap/setup.py'

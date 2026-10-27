@@ -6,3 +6,6 @@ fmt:
   # the generated cluster role in its own style on every run.
   - "config/crd/**"
   - "config/rbac/clusterrole.generated.yaml"
+  - "tests/pours/**"
+  - "tests/tmp/**"
+  - "tests/.venv/**"

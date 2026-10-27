@@ -81,5 +81,15 @@ Dockerfile.cross
 ### Primus ###
 target/
 
+### Python ###
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+
+### E2E ###
+tests/casting.yaml.lock
+tests/pours/
+
 ### Release artifacts ###
 dist/

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: signoz-e2e
+  namespace: signoz
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/component: signoz
+    app.kubernetes.io/instance: signoz
+    app.kubernetes.io/name: signoz-signoz
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: http
+    nodePort: 30080
