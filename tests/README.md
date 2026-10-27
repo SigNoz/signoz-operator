@@ -35,7 +35,7 @@ make test-e2e-reuse E2E_TARGET=e2e/tests/dashboard/01_dashboard.py::test_a_chang
 
 The retained environment is recorded in pytest's cache, so `--reuse` only connects to a cluster this suite created, and a non-reuse run refuses to take over an existing cluster of the same name.
 
-In CI, `e2eci` runs the suite on a pull request labelled `safe-to-e2e`. It pins Foundry, which decides the SigNoz version installed, and kind, which decides the Kubernetes version.
+In CI, `e2eci` runs the suite on a pull request labelled `safe-to-e2e`. It installs the latest Foundry and pins kind, which decides the Kubernetes version.
 
 ## Reaching SigNoz
 
