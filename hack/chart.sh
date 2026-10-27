@@ -58,13 +58,21 @@ rules() {
 ##############################################################################
 # Emits a CRD as a chart template: guarded by crds.install, with the chart's
 # annotations appended to the ones controller-gen already writes and a labels
-# block added next to the name.
+# block added next to the name. Template delimiters already in the CRD, such as
+# the {{$labels.service_name}} a Rule description quotes, are escaped so that
+# helm renders them back as text instead of evaluating them.
 # Arguments:
 #   path to the controller-gen CRD
 ##############################################################################
 crd() {
   echo '{{- if .Values.crds.install }}'
   awk '
+    {
+      gsub(/\{\{/, "\001")
+      gsub(/\}\}/, "\002")
+      gsub(/\001/, "{{ \"{{\" }}")
+      gsub(/\002/, "{{ \"}}\" }}")
+    }
     /^    controller-gen\.kubebuilder\.io\/version:/ {
       print
       print "    {{- include \"signoz-operator.crdAnnotations\" . | nindent 4 }}"
