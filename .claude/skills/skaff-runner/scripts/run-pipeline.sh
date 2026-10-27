@@ -31,8 +31,6 @@
 #   run-pipeline.sh          (no arguments; reads tmp/spec/openapi.yml)
 #
 # Env:
-#   SKAFF_VERSION=vX.Y.Z     skaff release for primus to fetch (default: latest)
-#   SKAFF_REFRESH=1          drop tmp/bin/skaff first, forcing a re-download
 #   DRY_RUN=1                print each invocation instead of running it
 #   SKIP_CONTROLLERGEN=1     skip the trailing primus controllergen runs
 #
@@ -76,12 +74,12 @@ run() {
   fi
 }
 
-# primus downloads the release into its BIN_DIR, which is ./tmp/bin, and every
-# generator below runs that binary. primus keeps a binary that is already
-# there, so SKAFF_REFRESH=1 is how you move to a newer release — and how you
-# clear out anything that landed at this path by other means.
+# primus downloads the latest release into its BIN_DIR, which is ./tmp/bin, and
+# every generator below runs that binary. primus keeps a binary that is already
+# there, so drop it first: every run renders with the latest skaff, never a
+# stale download or anything that landed at this path by other means.
 SKAFF_BIN="$WT/tmp/bin/skaff"
-[ -z "${SKAFF_REFRESH:-}" ] || rm -f "$SKAFF_BIN"
+run rm -f "$SKAFF_BIN"
 run make -f "$PRIMUS_MK" "$SKAFF_BIN"
 
 echo ">> $("$SKAFF_BIN" --version 2>/dev/null || echo 'skaff (version unknown)') from tmp/bin, via primus"

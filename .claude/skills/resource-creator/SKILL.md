@@ -93,9 +93,9 @@ Run the **skaff-runner** skill's script. It takes no arguments and reads `tmp/sp
 bash .claude/skills/skaff-runner/scripts/run-pipeline.sh
 ```
 
-`DRY_RUN=1` previews the invocations. See the [skaff-runner skill](../skaff-runner/SKILL.md) for `SKAFF_VERSION`, `SKAFF_REFRESH` and the guarantees it makes.
+`DRY_RUN=1` previews the invocations. See the [skaff-runner skill](../skaff-runner/SKILL.md) for the guarantees it makes; it always runs the latest skaff release.
 
-It regenerates **every** declared kind. For a new kind, expect `git status` to show exactly: new `zz_generated_<kind>_types.go`, `zz_generated_<kind>_object.go`, `zz_generated_<kind>_controller.go`, `<kind>_adapter.go`, `resources.signoz.io_<plural>.yaml` and `resources_v1alpha1_<kind>.yaml`, plus edits to `PROJECT`, `cmd/main.go`, `zz_generated.deepcopy.go`, `config/crd/kustomization.yaml`, `config/samples/kustomization.yaml`, `config/rbac/clusterrole.generated.yaml` and `skaff.yml`. Any **other** kind showing a diff means the pinned spec is not the one that produced the committed tree; fix the spec, don't commit the re-render.
+It regenerates **every** declared kind. For a new kind, expect `git status` to show exactly: new `zz_generated_<kind>_types.go`, `zz_generated_<kind>_object.go`, `zz_generated_<kind>_controller.go`, `<kind>_adapter.go`, `resources.signoz.io_<plural>.yaml` and `resources_v1alpha1_<kind>.yaml`, plus edits to `PROJECT`, `cmd/main.go`, `zz_generated.deepcopy.go`, `config/crd/kustomization.yaml`, `config/samples/kustomization.yaml`, `config/rbac/clusterrole.generated.yaml` and `skaff.yml`. Any **other** kind showing a diff means either the pinned spec is not the one that produced the committed tree, or a newer skaff release re-renders it. Run the **spec-syncer** preview against the current pin to tell which; either way, land that re-render as its own catch-up change with spec-syncer before adding the kind on top.
 
 Then look at what the typed form became:
 - `stays a passthrough` lines on stderr, and `grep -n apiextensionsv1.JSON api/resources/v1alpha1/zz_generated_<kind>_types.go` for the silent ones. A passthrough field is validated by SigNoz, not at apply. Fine for genuinely open regions; for a field users will set often, consider whether an `ignores` entry (jsonSpec-only) is the more honest surface.

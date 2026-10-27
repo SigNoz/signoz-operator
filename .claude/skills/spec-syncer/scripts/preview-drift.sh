@@ -22,12 +22,16 @@
 #
 # adapters and controllers are not rendered: neither reads the spec.
 #
+# The rendered files and a unified diff per changed kind are kept under
+# tmp/spec-preview/ (gitignored, replaced on every run), so a flagged kind's
+# diff can be read without touching the checkout: tmp/spec-preview/<kind>.diff
+#
 # Usage:
 #   preview-drift.sh [SPEC]   (default: tmp/spec/openapi.yml)
 #
-# Run it against the current pinned spec first: every kind should report
-# "same". Anything else means the baseline does not reproduce HEAD, and a
-# later diff cannot be attributed to the new spec alone.
+# Like the pipeline, it always renders with the latest skaff release. Run it
+# against the current pinned spec first: a kind that does not report "same"
+# there is re-rendered by the newer skaff, not by the new spec.
 #
 set -euo pipefail
 
@@ -42,17 +46,17 @@ if [ ! -f "$SPEC" ]; then
 fi
 
 PRIMUS_MK="${PRIMUS_HOME:-}/src/make/main.mk"
-SKAFF_BIN="$WT/tmp/bin/skaff"
-if [ ! -x "$SKAFF_BIN" ]; then
-  if [ -z "${PRIMUS_HOME:-}" ] || [ ! -f "$PRIMUS_MK" ]; then
-    echo "no skaff at tmp/bin/skaff and PRIMUS_HOME is not set — set it up with the primus-setter skill" >&2
-    exit 1
-  fi
-  make -f "$PRIMUS_MK" "$SKAFF_BIN" >/dev/null
+if [ -z "${PRIMUS_HOME:-}" ] || [ ! -f "$PRIMUS_MK" ]; then
+  echo "PRIMUS_HOME is not set to a primus checkout — skaff comes from primus; set it up with the primus-setter skill" >&2
+  exit 1
 fi
+# primus keeps a binary already at this path, so drop it to get the latest release.
+SKAFF_BIN="$WT/tmp/bin/skaff"
+rm -f "$SKAFF_BIN"
+make -f "$PRIMUS_MK" "$SKAFF_BIN" >/dev/null
 
-OUT="$(mktemp -d)"
-trap 'rm -rf "$OUT"' EXIT
+OUT="$WT/tmp/spec-preview"
+rm -rf "$OUT"
 mkdir -p "$OUT/types" "$OUT/objects"
 
 echo ">> $("$SKAFF_BIN" --version 2>/dev/null || echo 'skaff (version unknown)') from tmp/bin"
@@ -111,6 +115,11 @@ for rendered in "$OUT"/types/zz_generated_*_types.go "$WT"/api/resources/v1alpha
   fi
 
   printf '%-20s %-13s %-13s %-10s %-13s %s%s\n' "$kind" "$(status "$ct" "$nt")" "$(status "$co" "$no")" "$sb -> $sa" "$pb -> $pa" "$xb -> $xa" "$flag"
+
+  for pair in "$ct:$nt" "$co:$no"; do
+    diff -u --label "${pair%%:*}" --label "${pair#*:}" "${pair%%:*}" "${pair#*:}" 2>/dev/null || true
+  done | sed "s#$WT/##g" > "$OUT/$kind.diff"
+  [ -s "$OUT/$kind.diff" ] || rm -f "$OUT/$kind.diff"
 done
 
 echo
@@ -119,3 +128,4 @@ if [ "$FLAGGED" -eq 0 ]; then
 else
   echo ">> $FLAGGED kind(s) marked !! lost structs, typed fields or CEL validation, or stopped generating — read their diff before regenerating"
 fi
+echo ">> rendered files and per-kind diffs in tmp/spec-preview/"

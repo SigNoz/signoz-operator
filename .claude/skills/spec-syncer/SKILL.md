@@ -1,7 +1,7 @@
 ---
 name: spec-syncer
 description: >-
-  Re-run the full skaff operator pipeline against a newer SigNoz OpenAPI spec to catch the mirrored kinds up on spec drift, then open a catch-up PR with the regenerated types, objects, deepcopy and CRDs. Use when the task is "the upstream openapi spec changed", "regenerate the operator from the latest spec", "sync the generated kinds to SigNoz/signoz main", "pick up the new spec", "an upstream PR merged, regenerate Rule", or a periodic spec-drift catch-up. It regenerates every kind already declared in skaff.yml — it does not add a kind (use resource-creator for that), makes no skaff.yml edits, and does not bump the skaff release.
+  Re-run the full skaff operator pipeline against a newer SigNoz OpenAPI spec to catch the mirrored kinds up on spec drift, then open a catch-up PR with the regenerated types, objects, deepcopy and CRDs. Use when the task is "the upstream openapi spec changed", "regenerate the operator from the latest spec", "sync the generated kinds to SigNoz/signoz main", "pick up the new spec", "an upstream PR merged, regenerate Rule", or a periodic spec-drift catch-up. It regenerates every kind already declared in skaff.yml — it does not add a kind (use resource-creator for that), and makes no skaff.yml edits.
 ---
 
 # Sync the generated kinds to the upstream OpenAPI spec
@@ -45,20 +45,23 @@ Always read `origin/main`, never the local `main` — the reference checkout lag
 
 ### 2. Confirm the baseline, then preview the drift
 
-`scripts/preview-drift.sh` renders the two spec-reading generators (`types`, `objects`) into a throwaway directory and compares each kind with what is committed. It never touches the working tree.
+`scripts/preview-drift.sh` renders the two spec-reading generators (`types`, `objects`) with the latest skaff release into `tmp/spec-preview/` (gitignored, replaced on every run) and compares each kind with what is committed. It never touches the checkout, and it writes a unified diff for each changed kind to `tmp/spec-preview/<kind>.diff`.
 
 ```sh
 bash .claude/skills/spec-syncer/scripts/preview-drift.sh                            # the current pin
 bash .claude/skills/spec-syncer/scripts/preview-drift.sh tmp/spec/openapi.next.yml  # the candidate
 ```
 
-**The baseline run must report `same` for every kind.** If it doesn't, the current pin plus the `tmp/bin/skaff` you have do not reproduce HEAD, and any diff the sync produces mixes spec drift with that mismatch. Sort that out first — usually the pin was replaced earlier, or `tmp/bin/skaff` is a different release than the one that rendered HEAD (the script prints the version).
+**The baseline run tells you what skaff alone changes.** Both scripts always use the latest skaff release, so a kind that does not report `same` against the current pin is being re-rendered by a newer skaff, not by the spec. That is expected and goes into the sync; read its diff and note the skaff version (the script prints it) in the PR body. If the baseline flags a kind `!!`, the regression is in skaff, not the spec.
 
-The candidate run prints, per kind, whether the types and objects files change and how three signals move: generated structs, `apiextensionsv1.JSON` passthroughs, and CEL `XValidation` rules. A kind marked `!!` lost structs, gained a passthrough, lost validation, or stopped generating. Read its diff before going further — this is the operator's equivalent of a schema that used to generate and now gets skipped. See Step 5 for how to tell drift from breakage.
+The candidate run prints, per kind, whether the types and objects files change and how three signals move: generated structs, `apiextensionsv1.JSON` passthroughs, and CEL `XValidation` rules. A kind marked `!!` lost structs, gained a passthrough, lost validation, or stopped generating. Read `tmp/spec-preview/<kind>.diff` before going further — this is the operator's equivalent of a schema that used to generate and now gets skipped. See Step 5 for how to tell drift from breakage.
 
-### 3. Branch
+### 3. Start from a clean checkout, then branch
+
+The pipeline rewrites files across `api`, `config`, `internal` and `cmd`, and the rollback in Step 5 restores those directories wholesale. Uncommitted work there would be mixed into the sync, or lost on rollback, so refuse to start if there is any:
 
 ```sh
+test -z "$(git status --porcelain -- api config internal cmd tests)" || { echo "commit or stash your changes under api/ config/ internal/ cmd/ tests/ first"; exit 1; }
 git switch -c chore/spec-sync-$(date +%Y%m%d)
 ```
 
@@ -70,7 +73,7 @@ mv tmp/spec/openapi.next.yml tmp/spec/openapi.yml
 bash .claude/skills/skaff-runner/scripts/run-pipeline.sh
 ```
 
-Check the `>> spec` line it prints matches the hash the preview reported for the candidate. Do **not** pass `SKAFF_REFRESH=1` or change `SKAFF_VERSION` for a sync: a new skaff release re-renders templates too, and the diff can then no longer be attributed to the spec. A skaff bump is its own PR. Do **not** edit `skaff.yml` either — if the spec moved an operation path or renamed a schema the config points at, the generators fail, and that is a resource change, not a sync.
+Check the `>> spec` line it prints matches the hash the preview reported for the candidate, and the `>> skaff version` line matches the preview's. Do **not** edit `skaff.yml` either — if the spec moved an operation path or renamed a schema the config points at, the generators fail, and that is a resource change, not a sync.
 
 ### 5. Review the diff: catch-up or breakage
 
@@ -82,7 +85,7 @@ A wholesale regen legitimately pulls in drift you didn't ask for, in kinds nobod
 
 `grep -rn apiextensionsv1.JSON api/resources/v1alpha1/` lists every passthrough, including the ones skaff demotes silently.
 
-**On breakage, stop — do not commit a partial or regressed regen.** Restore the tree and the pin:
+**On breakage, stop — do not commit a partial or regressed regen.** Step 3 guaranteed these directories were clean, so restoring them discards only what this run generated. Restore the tree and the pin:
 
 ```sh
 git restore -- api config internal cmd
@@ -122,4 +125,3 @@ Opening a PR is outward-facing: **summarize the drift per kind and confirm with 
 
 - Adding a new mirrored kind → **resource-creator** (declares it in `skaff.yml`, scaffolds and registers it).
 - Regenerating without changing the spec, e.g. after a `skaff.yml` edit → **skaff-runner** directly.
-- Moving to a newer skaff release → its own PR, through skaff-runner with `SKAFF_REFRESH=1`.
