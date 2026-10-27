@@ -45,11 +45,6 @@ Readiness is `/api/v2/healthz`, which needs no credential. SigNoz serves its web
 
 `casting.yaml` sets `SIGNOZ_USER_ROOT_*`, so SigNoz provisions its org and root admin at boot and keeps them across restarts and `--reuse` runs. The suite logs in as that user, grants a service account `signoz-admin`, and issues it an API key, the same credential a real `ProviderConfig` carries.
 
-## Foundry overrides
-
-- `SIGNOZ_USER_ROOT_ENABLED` and `SIGNOZ_STATSREPORTER_ENABLED` are `spec.patches`. Foundry renders `spec.signoz.spec.env` values unquoted, so `"true"` reaches the API server as a boolean and the StatefulSet is rejected.
-- `spec.telemetrystore` deletes `query_log.partition_by`. The clickhouse-operator config Foundry ships already defines an engine for that table, and ClickHouse refuses both together and never finishes loading metadata.
-
 ## Namespaces
 
 The operator watches every namespace, so tests run in `signoz-operator-e2e` and stay apart by a name unique to each test. The manager runs in `signoz-operator-system`, where `config/default` installs it.

@@ -6,29 +6,10 @@ spec:
   deployment:
     flavor: kustomize
     mode: kubernetes
-  # Boolean env values go through patches: spec.signoz.spec.env renders them unquoted.
-  patches:
-  - operations:
-    - value:
-        name: SIGNOZ_USER_ROOT_ENABLED
-        value: "true"
-      op: add
-      path: /spec/template/spec/containers/0/env/-
-    - value:
-        name: SIGNOZ_STATSREPORTER_ENABLED
-        value: "false"
-      op: add
-      path: /spec/template/spec/containers/0/env/-
-    target: deployment/signoz/statefulset.yaml
   signoz:
     spec:
       env:
+        SIGNOZ_STATSREPORTER_ENABLED: "false"
         SIGNOZ_USER_ROOT_EMAIL: "admin@e2e.test"
+        SIGNOZ_USER_ROOT_ENABLED: "true"
         SIGNOZ_USER_ROOT_PASSWORD: "password123Z$"
-  telemetrystore:
-    spec:
-      config:
-        data:
-          config-0-0.yaml: |
-            query_log:
-              partition_by: null
