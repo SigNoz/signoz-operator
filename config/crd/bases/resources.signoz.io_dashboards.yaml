@@ -190,11 +190,14 @@ spec:
                                           enum:
                                           - signoz/TimeSeriesPanel
                                           - signoz/BarChartPanel
+                                          - signoz/AreaChartPanel
                                           - signoz/NumberPanel
                                           - signoz/PieChartPanel
                                           - signoz/TablePanel
                                           - signoz/HistogramPanel
                                           - signoz/ListPanel
+                                          - signoz/TextPanel
+                                          - signoz/HeatmapPanel
                                           type: string
                                         spec:
                                           properties:
@@ -206,15 +209,63 @@ spec:
                                                   type: number
                                                 softMin:
                                                   type: number
+                                                "y":
+                                                  properties:
+                                                    scale:
+                                                      enum:
+                                                      - auto
+                                                      - linear
+                                                      - log
+                                                      - symlog
+                                                      type: string
+                                                  type: object
                                               type: object
                                             chartAppearance:
                                               properties:
+                                                colors:
+                                                  properties:
+                                                    fill:
+                                                      type: string
+                                                    maxCount:
+                                                      type: number
+                                                    minCount:
+                                                      type: number
+                                                    mode:
+                                                      enum:
+                                                      - palette
+                                                      - opacity
+                                                      type: string
+                                                    palette:
+                                                      enum:
+                                                      - ice
+                                                      - moss
+                                                      - rust
+                                                      - graphite
+                                                      - ember
+                                                      - lagoon
+                                                      - orchid
+                                                      - verdant
+                                                      - lava
+                                                      - beacon
+                                                      type: string
+                                                    scale:
+                                                      enum:
+                                                      - log
+                                                      - sqrt
+                                                      - linear
+                                                      type: string
+                                                    steps:
+                                                      format: int64
+                                                      type: integer
+                                                  type: object
                                                 fillMode:
                                                   enum:
                                                   - solid
                                                   - gradient
                                                   - none
                                                   type: string
+                                                fillOpacity:
+                                                  type: number
                                                 lineInterpolation:
                                                   enum:
                                                   - linear
@@ -255,6 +306,11 @@ spec:
                                                 unit:
                                                   type: string
                                               type: object
+                                            headerOptions:
+                                              properties:
+                                                hide:
+                                                  type: boolean
+                                              type: object
                                             histogramBuckets:
                                               properties:
                                                 bucketCount:
@@ -280,6 +336,27 @@ spec:
                                                   - right
                                                   type: string
                                               type: object
+                                            mode:
+                                              enum:
+                                              - markdown
+                                              type: string
+                                            presentation:
+                                              properties:
+                                                background:
+                                                  type: string
+                                                textAlign:
+                                                  enum:
+                                                  - left
+                                                  - center
+                                                  - right
+                                                  type: string
+                                                verticalAlign:
+                                                  enum:
+                                                  - top
+                                                  - center
+                                                  - bottom
+                                                  type: string
+                                              type: object
                                             selectFields:
                                               items:
                                                 properties:
@@ -292,6 +369,7 @@ spec:
                                                     - span
                                                     - trace
                                                     - resource
+                                                    - scope
                                                     - attribute
                                                     - body
                                                     type: string
@@ -318,6 +396,8 @@ spec:
                                                 - name
                                                 type: object
                                               type: array
+                                            text:
+                                              type: string
                                             thresholds:
                                               items:
                                                 properties:
@@ -355,6 +435,12 @@ spec:
                                               properties:
                                                 fillSpans:
                                                   type: boolean
+                                                stack:
+                                                  enum:
+                                                  - none
+                                                  - normal
+                                                  - percent
+                                                  type: string
                                                 stackedBarChart:
                                                   type: boolean
                                                 timePreference:
@@ -386,6 +472,7 @@ spec:
                                             - raw
                                             - raw_stream
                                             - trace
+                                            - heatmap
                                             type: string
                                           spec:
                                             properties:
@@ -396,6 +483,7 @@ spec:
                                                   kind:
                                                     enum:
                                                     - signoz/BuilderQuery
+                                                    - signoz/AIBuilderQuery
                                                     - signoz/CompositeQuery
                                                     - signoz/Formula
                                                     - signoz/PromQLQuery
@@ -467,6 +555,33 @@ spec:
                                                               type: string
                                                           type: object
                                                         type: array
+                                                      bucketOptions:
+                                                        properties:
+                                                          kind:
+                                                            enum:
+                                                            - linear
+                                                            - log
+                                                            type: string
+                                                          spec:
+                                                            properties:
+                                                              maxValue:
+                                                                type: number
+                                                              numBuckets:
+                                                                format: int64
+                                                                type: integer
+                                                              scale:
+                                                                format: int64
+                                                                type: integer
+                                                            type: object
+                                                        required:
+                                                        - kind
+                                                        - spec
+                                                        type: object
+                                                        x-kubernetes-validations:
+                                                        - message: kind linear requires
+                                                            spec.maxValue
+                                                          rule: self.kind != 'linear'
+                                                            || has(self.spec.maxValue)
                                                       cursor:
                                                         type: string
                                                       disabled:
@@ -525,6 +640,7 @@ spec:
                                                               - span
                                                               - trace
                                                               - resource
+                                                              - scope
                                                               - attribute
                                                               - body
                                                               type: string
@@ -594,6 +710,7 @@ spec:
                                                                   - span
                                                                   - trace
                                                                   - resource
+                                                                  - scope
                                                                   - attribute
                                                                   - body
                                                                   type: string
@@ -689,6 +806,35 @@ spec:
                                                                         type: string
                                                                     type: object
                                                                   type: array
+                                                                bucketOptions:
+                                                                  properties:
+                                                                    kind:
+                                                                      enum:
+                                                                      - linear
+                                                                      - log
+                                                                      type: string
+                                                                    spec:
+                                                                      properties:
+                                                                        maxValue:
+                                                                          type: number
+                                                                        numBuckets:
+                                                                          format: int64
+                                                                          type: integer
+                                                                        scale:
+                                                                          format: int64
+                                                                          type: integer
+                                                                      type: object
+                                                                  required:
+                                                                  - kind
+                                                                  - spec
+                                                                  type: object
+                                                                  x-kubernetes-validations:
+                                                                  - message: kind
+                                                                      linear requires
+                                                                      spec.maxValue
+                                                                    rule: self.kind
+                                                                      != 'linear'
+                                                                      || has(self.spec.maxValue)
                                                                 cursor:
                                                                   type: string
                                                                 disabled:
@@ -747,6 +893,7 @@ spec:
                                                                         - span
                                                                         - trace
                                                                         - resource
+                                                                        - scope
                                                                         - attribute
                                                                         - body
                                                                         type: string
@@ -816,6 +963,7 @@ spec:
                                                                             - span
                                                                             - trace
                                                                             - resource
+                                                                            - scope
                                                                             - attribute
                                                                             - body
                                                                             type: string
@@ -866,6 +1014,7 @@ spec:
                                                                               - span
                                                                               - trace
                                                                               - resource
+                                                                              - scope
                                                                               - attribute
                                                                               - body
                                                                               type: string
@@ -923,6 +1072,7 @@ spec:
                                                                                   - span
                                                                                   - trace
                                                                                   - resource
+                                                                                  - scope
                                                                                   - attribute
                                                                                   - body
                                                                                   type: string
@@ -966,6 +1116,7 @@ spec:
                                                                         - span
                                                                         - trace
                                                                         - resource
+                                                                        - scope
                                                                         - attribute
                                                                         - body
                                                                         type: string
@@ -998,6 +1149,8 @@ spec:
                                                                   - logs
                                                                   - metrics
                                                                   type: string
+                                                                skipStepAlignment:
+                                                                  type: boolean
                                                                 source:
                                                                   enum:
                                                                   - meter
@@ -1056,6 +1209,7 @@ spec:
                                                                     - span
                                                                     - trace
                                                                     - resource
+                                                                    - scope
                                                                     - attribute
                                                                     - body
                                                                     type: string
@@ -1113,6 +1267,7 @@ spec:
                                                                         - span
                                                                         - trace
                                                                         - resource
+                                                                        - scope
                                                                         - attribute
                                                                         - body
                                                                         type: string
@@ -1156,6 +1311,7 @@ spec:
                                                               - span
                                                               - trace
                                                               - resource
+                                                              - scope
                                                               - attribute
                                                               - body
                                                               type: string
@@ -1188,6 +1344,8 @@ spec:
                                                         - metrics
                                                         - traces
                                                         type: string
+                                                      skipStepAlignment:
+                                                        type: boolean
                                                       source:
                                                         enum:
                                                         - meter
@@ -1207,6 +1365,10 @@ spec:
                                                 - message: kind signoz/BuilderQuery
                                                     requires spec.signal
                                                   rule: self.kind != 'signoz/BuilderQuery'
+                                                    || has(self.spec.signal)
+                                                - message: kind signoz/AIBuilderQuery
+                                                    requires spec.signal
+                                                  rule: self.kind != 'signoz/AIBuilderQuery'
                                                     || has(self.spec.signal)
                                             required:
                                             - plugin

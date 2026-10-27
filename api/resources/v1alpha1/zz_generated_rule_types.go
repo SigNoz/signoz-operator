@@ -13,7 +13,7 @@ type RuleObjectSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Alert string `json:"alert"`
 
-	// +kubebuilder:validation:Enum=METRIC_BASED_ALERT;TRACES_BASED_ALERT;LOGS_BASED_ALERT;EXCEPTIONS_BASED_ALERT
+	// +kubebuilder:validation:Enum=METRIC_BASED_ALERT;TRACES_BASED_ALERT;LOGS_BASED_ALERT;EXCEPTIONS_BASED_ALERT;AI_TRACES_BASED_ALERT
 	// +kubebuilder:validation:Required
 	AlertType string `json:"alertType"`
 
@@ -110,6 +110,9 @@ type RuleQuerySpec struct {
 	Aggregations []RuleAggregation `json:"aggregations,omitempty"`
 
 	// +optional
+	BucketOptions *RuleBucketOptions `json:"bucketOptions,omitempty"`
+
+	// +optional
 	Cursor string `json:"cursor,omitempty"`
 
 	// +optional
@@ -163,6 +166,9 @@ type RuleQuerySpec struct {
 	// +kubebuilder:validation:Enum=traces;logs;metrics
 	// +optional
 	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	SkipStepAlignment bool `json:"skipStepAlignment,omitempty"`
 
 	// +kubebuilder:validation:Enum=meter
 	// +optional
@@ -219,6 +225,27 @@ type RuleComparisonSpaceAggregationParam struct {
 	Threshold float64 `json:"threshold"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self.kind != 'linear' || has(self.spec.maxValue)",message="kind linear requires spec.maxValue"
+type RuleBucketOptions struct {
+	// +kubebuilder:validation:Enum=linear;log
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+
+	// +kubebuilder:validation:Required
+	Spec RuleBucketOptionsSpec `json:"spec"`
+}
+
+type RuleBucketOptionsSpec struct {
+	// +optional
+	MaxValue float64 `json:"maxValue,omitempty"`
+
+	// +optional
+	NumBuckets int64 `json:"numBuckets,omitempty"`
+
+	// +optional
+	Scale int64 `json:"scale,omitempty"`
+}
+
 type RuleFilter struct {
 	// +optional
 	Expression string `json:"expression,omitempty"`
@@ -250,7 +277,7 @@ type RuleGroupBy struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -296,7 +323,7 @@ type RuleKey struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 
@@ -320,7 +347,7 @@ type RuleSecondaryAggregation struct {
 	Expression string `json:"expression,omitempty"`
 
 	// +optional
-	GroupBy []RuleGroupBy `json:"groupBy,omitempty"`
+	GroupBy []RuleSecondaryAggregationGroupBy `json:"groupBy,omitempty"`
 
 	// +optional
 	Limit int64 `json:"limit,omitempty"`
@@ -329,11 +356,35 @@ type RuleSecondaryAggregation struct {
 	LimitBy *RuleSecondaryAggregationLimitBy `json:"limitBy,omitempty"`
 
 	// +optional
-	Order []RuleOrder `json:"order,omitempty"`
+	Order []RuleSecondaryAggregationOrder `json:"order,omitempty"`
 
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	StepInterval *apiextensionsv1.JSON `json:"stepInterval,omitempty"`
+}
+
+type RuleSecondaryAggregationGroupBy struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
+	// +optional
+	FieldContext string `json:"fieldContext,omitempty"`
+
+	// +kubebuilder:validation:Enum=string;bool;float64;int64;number
+	// +optional
+	FieldDataType string `json:"fieldDataType,omitempty"`
+
+	// +kubebuilder:validation:Enum=traces;logs;metrics
+	// +optional
+	Signal string `json:"signal,omitempty"`
+
+	// +optional
+	Unit string `json:"unit,omitempty"`
 }
 
 type RuleSecondaryAggregationLimitBy struct {
@@ -344,6 +395,15 @@ type RuleSecondaryAggregationLimitBy struct {
 	Value string `json:"value,omitempty"`
 }
 
+type RuleSecondaryAggregationOrder struct {
+	// +kubebuilder:validation:Enum=asc;desc
+	// +optional
+	Direction string `json:"direction,omitempty"`
+
+	// +optional
+	Key *RuleKey `json:"key,omitempty"`
+}
+
 type RuleSelectField struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -352,7 +412,7 @@ type RuleSelectField struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;attribute;body
+	// +kubebuilder:validation:Enum=metric;log;span;trace;resource;scope;attribute;body
 	// +optional
 	FieldContext string `json:"fieldContext,omitempty"`
 

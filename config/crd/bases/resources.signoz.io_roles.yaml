@@ -109,6 +109,7 @@ spec:
                                       - factor-api-key
                                       - license
                                       - subscription
+                                      - deployment-host
                                       - logs
                                       - traces
                                       - metrics
@@ -116,6 +117,7 @@ spec:
                                       - meter-metrics
                                       - logs-field
                                       - traces-field
+                                      - metrics-field
                                       type: string
                                     type:
                                       enum:
