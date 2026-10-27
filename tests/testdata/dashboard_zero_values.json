@@ -1,0 +1,56 @@
+{
+  "name": "placeholder",
+  "schemaVersion": "v6",
+  "tags": [
+    {
+      "key": "owner",
+      "value": "e2e"
+    }
+  ],
+  "spec": {
+    "display": {
+      "name": "Placeholder",
+      "description": "Applied by the operator end-to-end suite"
+    },
+    "layouts": [],
+    "panels": {
+      "requests": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Requests"
+          },
+          "plugin": {
+            "kind": "signoz/TimeSeriesPanel",
+            "spec": {
+              "axes": {
+                "softMin": 0
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "time_series",
+              "spec": {
+                "name": "A",
+                "plugin": {
+                  "kind": "signoz/BuilderQuery",
+                  "spec": {
+                    "name": "A",
+                    "signal": "traces",
+                    "aggregations": [
+                      {
+                        "expression": "count()"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "variables": []
+  }
+}
