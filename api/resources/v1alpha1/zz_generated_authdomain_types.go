@@ -26,6 +26,7 @@ type AuthDomainObjectSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'google' || (has(self.spec.clientId) && has(self.spec.clientSecret))",message="kind google requires spec.clientId, spec.clientSecret"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'oidc' || (has(self.spec.issuer) && has(self.spec.clientId) && has(self.spec.clientSecret))",message="kind oidc requires spec.issuer, spec.clientId, spec.clientSecret"
 type AuthDomainConfig struct {
+	// The kind of authn provider.
 	// +kubebuilder:validation:Enum=saml;google;oidc
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
