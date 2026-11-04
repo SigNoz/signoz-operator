@@ -12,6 +12,7 @@ pytest_plugins = [
     "fixtures.providerconfig",
     "fixtures.dashboards",
     "fixtures.notificationchannels",
+    "fixtures.rules",
 ]
 
 
