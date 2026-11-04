@@ -76,6 +76,36 @@ func TestDiff(t *testing.T) {
 			expectedPaths: []string{""},
 		},
 		{
+			name:          "ZeroValuesOnlyInY_NoDiff",
+			x:             `{"alert":"a"}`,
+			y:             `{"alert":"a","disabled":false,"step":0,"legend":"","recoveryTarget":null,"tags":[],"settings":{"usePolicy":false,"renotify":{"enabled":false}}}`,
+			expectedPaths: nil,
+		},
+		{
+			name:          "ZeroValueOnlyInYInsideArrayElement_NoDiff",
+			x:             `{"queries":[{"name":"A"}]}`,
+			y:             `{"queries":[{"name":"A","stats":false}]}`,
+			expectedPaths: nil,
+		},
+		{
+			name:          "NonZeroValueOnlyInY_PathReported",
+			x:             `{"alert":"a"}`,
+			y:             `{"alert":"a","disabled":true}`,
+			expectedPaths: []string{"disabled"},
+		},
+		{
+			name:          "ObjectWithNonZeroLeafOnlyInY_PathReported",
+			x:             `{}`,
+			y:             `{"settings":{"usePolicy":false,"renotify":{"enabled":true}}}`,
+			expectedPaths: []string{"settings"},
+		},
+		{
+			name:          "ZeroValueOnlyInX_PathReported",
+			x:             `{"disabled":false}`,
+			y:             `{}`,
+			expectedPaths: []string{"disabled"},
+		},
+		{
 			name:          "IntegerAndFloatForms_Equal",
 			x:             `{"a":1}`,
 			y:             `{"a":1.0}`,
