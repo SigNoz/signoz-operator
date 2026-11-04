@@ -7,6 +7,17 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+var ignoreZeroOnlyInY = cmp.FilterPath(func(path cmp.Path) bool {
+	index, ok := path.Last().(cmp.MapIndex)
+	if !ok {
+		return false
+	}
+
+	x, y := index.Values()
+
+	return !x.IsValid() && y.IsValid() && isDeepZero(y.Interface())
+}, cmp.Ignore())
+
 // Equal and Diff treat a key that only y has as equal when its value is a
 // deep zero, so the defaults SigNoz fills into an omitted field are not drift.
 // A field whose server default is not a zero value must be set in x.
@@ -22,16 +33,22 @@ func Diff(x, y any) []string {
 	return reporter.paths
 }
 
-var ignoreZeroOnlyInY = cmp.FilterPath(func(path cmp.Path) bool {
-	index, ok := path.Last().(cmp.MapIndex)
-	if !ok {
-		return false
+// Intersect returns the paths in y that overlap a path in x: equal to it, or
+// related as ancestor and descendant. The root path "" overlaps every path.
+func Intersect(x, y []string) []string {
+	var intersection []string
+
+	for _, candidate := range y {
+		for _, path := range x {
+			if overlaps(candidate, path) {
+				intersection = append(intersection, candidate)
+				break
+			}
+		}
 	}
 
-	x, y := index.Values()
-
-	return !x.IsValid() && y.IsValid() && isDeepZero(y.Interface())
-}, cmp.Ignore())
+	return intersection
+}
 
 // isDeepZero reports a JSON zero value, or an object holding only zero values.
 func isDeepZero(value any) bool {
@@ -57,23 +74,6 @@ func isDeepZero(value any) bool {
 	}
 
 	return false
-}
-
-// Intersect returns the paths in y that overlap a path in x: equal to it, or
-// related as ancestor and descendant. The root path "" overlaps every path.
-func Intersect(x, y []string) []string {
-	var intersection []string
-
-	for _, candidate := range y {
-		for _, path := range x {
-			if overlaps(candidate, path) {
-				intersection = append(intersection, candidate)
-				break
-			}
-		}
-	}
-
-	return intersection
 }
 
 func overlaps(x, y string) bool {
