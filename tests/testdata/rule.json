@@ -1,0 +1,53 @@
+{
+  "alertType": "METRIC_BASED_ALERT",
+  "annotations": {
+    "description": "Memory controller {{$controller}} on {{$node}} corrected ECC errors in the last day"
+  },
+  "condition": {
+    "compositeQuery": {
+      "panelType": "graph",
+      "queries": [
+        {
+          "spec": {
+            "name": "A",
+            "query": "increase(node_edac_correctable_errors_total[1d])"
+          },
+          "type": "promql"
+        }
+      ],
+      "queryType": "promql"
+    },
+    "selectedQueryName": "A",
+    "thresholds": {
+      "kind": "basic",
+      "spec": [
+        {
+          "channels": [],
+          "matchType": "all_the_times",
+          "name": "warning",
+          "op": "above",
+          "target": 0
+        }
+      ]
+    }
+  },
+  "evaluation": {
+    "kind": "rolling",
+    "spec": {
+      "evalWindow": "1m",
+      "frequency": "1m"
+    }
+  },
+  "labels": {
+    "severity": "warning"
+  },
+  "notificationSettings": {
+    "renotify": {
+      "alertStates": ["firing"],
+      "enabled": true,
+      "interval": "4h"
+    }
+  },
+  "ruleType": "promql_rule",
+  "schemaVersion": "v2alpha1"
+}
