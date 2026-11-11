@@ -113,6 +113,24 @@ func (reconciler *commonReconciler) reconcile(ctx context.Context, obj resources
 		return ctrl.Result{}, nil
 	}
 
+	// The identity above is the template's: finalize, which resolves no
+	// reference, must find the same object.
+	resolved, err := withValuesFrom(ctx, reconciler.client, obj)
+	if err != nil {
+		requeueAfter := reconciler.retryInterval(obj)
+		logger.Error(err, "Could not resolve spec.valuesFrom, will retry", "requeueAfter", requeueAfter)
+		resources.SetConditionsOnOutcome(
+			status,
+			generation,
+			resources.ReconcilerOutcomeRecoverable,
+			resources.ReasonValuesFromNotReady,
+			err.Error(),
+		)
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	obj = resolved
+
 	hash, err := obj.Hash()
 	if err != nil {
 		logger.Error(err, "Hash could not be calculated, this is likely a malformed input, fix the spec")

@@ -71,6 +71,12 @@ type CoreSpec struct {
     // +kubebuilder:default=Delete
     // +optional
     ReclaimPolicy ReclaimPolicy `json:"reclaimPolicy,omitempty"`
+
+    // ValuesFrom fills fields of the body from Secrets and ConfigMaps.
+    // +listType=map
+    // +listMapKey=path
+    // +optional
+    ValuesFrom []ValueFrom `json:"valuesFrom,omitempty"`
 }
 ```
 
@@ -82,6 +88,42 @@ type CoreSpec struct {
 | `timeout` | `*metav1.Duration` | Upper bound on a single reconciliation attempt, including the HTTP calls to SigNoz. Omitted, it falls back to the operator-wide default. Each resource owns its own bound. |
 | `suspend` | `bool` | When true, the operator stops reconciling this resource and reports the `Suspended` condition; nothing in SigNoz is changed or deleted. |
 | `reclaimPolicy` | `ReclaimPolicy` (`Delete`/`Orphan`) | On custom-resource deletion, `Delete` removes the SigNoz object, `Orphan` leaves it. Defaults to `Delete`. |
+
+| `valuesFrom` | `[]ValueFrom` | Each entry sets one field of the body sent to SigNoz, named by a dot-separated `path`, from a `secretKeyRef` or `configMapKeyRef` read in the resource's own namespace. See below. |
+
+### A body field can be read from a Secret or ConfigMap
+
+A credential inside the body — an auth domain's OAuth client secret, a notification channel's token — would otherwise sit in the resource, and so in Git. `valuesFrom` keeps it out:
+
+```yaml
+spec:
+  providerConfigRef:
+    name: signoz
+  valuesFrom:
+  - path: config.spec.clientSecret
+    valueFrom:
+      secretKeyRef:
+        name: google-oauth
+        key: client_secret
+  objectTemplate:
+    spec:
+      name: example.com
+      config:
+        kind: google
+        spec:
+          clientId: 1234.apps.googleusercontent.com
+          clientSecret: ""
+```
+
+`valueFrom` is the shape a `ProviderConfig` already uses for its endpoint and credential ([provider-config.md](provider-config.md)). The value is written into the rendered body just before it is hashed, sent and compared, and replaces whatever the template holds at that path. It is never written back to the resource. It works the same for `spec` and `jsonSpec`, and for any field, not only credentials.
+
+It sits on `CoreSpec` rather than on each typed field because the typed fields are generated from the SigNoz OpenAPI spec; a path into the body needs nothing from the generator and covers every kind at once. The cost is that the schema cannot see it: a field the typed form requires must still be present in the template, where an empty string is enough, and a `path` that names no real field is only caught by SigNoz.
+
+- A value is always sent as a string.
+- A reference that cannot be read — the Secret, ConfigMap or key is missing — is `Recoverable` with reason `ValuesFromNotReady`, retried on `retryInterval`. The message names the reference, never a value.
+- A changed Secret or ConfigMap is picked up on the next `interval`, not at once: the resource controllers do not watch them.
+- The object's identity is read from the template. The field it comes from must not be set through `valuesFrom`.
+- `status.observedHash` is a hash of the body including the resolved values.
 
 ## Consequences
 

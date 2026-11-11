@@ -69,6 +69,28 @@ type CoreSpec struct {
 	// +kubebuilder:default=Delete
 	// +optional
 	ReclaimPolicy ReclaimPolicy `json:"reclaimPolicy,omitempty"`
+
+	// ValuesFrom fills fields of the body from Secrets and ConfigMaps, so a
+	// credential need not sit in the template. It applies to both template
+	// forms. The field the object's identity is read from cannot be set here.
+	// +listType=map
+	// +listMapKey=path
+	// +optional
+	ValuesFrom []ValueFrom `json:"valuesFrom,omitempty"`
+}
+
+// ValueFrom sets one field of the body sent to SigNoz from a Secret or
+// ConfigMap key in the resource's own namespace.
+type ValueFrom struct {
+	// Path is the field to set, as dot-separated keys from the root of the
+	// body; a number indexes into a list. It replaces whatever the template
+	// holds there.
+	// +kubebuilder:validation:Pattern=`^[^.]+(\.[^.]+)*$`
+	// +kubebuilder:validation:Required
+	Path string `json:"path"`
+
+	// +kubebuilder:validation:Required
+	ValueFrom ValueSource `json:"valueFrom"`
 }
 
 type SigNozResource struct {
