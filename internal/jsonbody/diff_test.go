@@ -88,6 +88,18 @@ func TestDiff(t *testing.T) {
 			expectedPaths: nil,
 		},
 		{
+			name:          "ZeroDurationOnlyInY_NoDiff",
+			x:             `{"notificationSettings":{"renotify":{"enabled":true}}}`,
+			y:             `{"notificationSettings":{"renotify":{"enabled":true},"groupBy":null,"newGroupEvalDelay":"0s"}}`,
+			expectedPaths: nil,
+		},
+		{
+			name:          "NonZeroDurationOnlyInY_PathReported",
+			x:             `{"notificationSettings":{}}`,
+			y:             `{"notificationSettings":{"newGroupEvalDelay":"2m"}}`,
+			expectedPaths: []string{"notificationSettings.newGroupEvalDelay"},
+		},
+		{
 			name:          "NonZeroValueOnlyInY_PathReported",
 			x:             `{"alert":"a"}`,
 			y:             `{"alert":"a","disabled":true}`,
