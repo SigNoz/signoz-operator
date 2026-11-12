@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/SigNoz/signoz-operator/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/SigNoz/signoz-operator?include_prereleases"></a>
-  <a href="https://golang.org"><img alt="Go Version" src="https://img.shields.io/badge/Go-1.26+-blue.svg"></a>
+  <a href="https://golang.org"><img alt="Go Version" src="https://img.shields.io/badge/Go-1.27+-blue.svg"></a>
   <a href="LICENSE"><img alt="License: AGPL v3" src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg"></a>
   <a href="https://github.com/SigNoz/signoz-operator/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/SigNoz/signoz-operator"></a>
   <a href="https://signoz.io/slack"><img alt="Slack" src="https://img.shields.io/badge/Slack-SigNoz-4A154B?logo=slack"></a>
