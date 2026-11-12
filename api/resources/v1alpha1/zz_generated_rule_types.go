@@ -23,20 +23,20 @@ type RuleObjectSpec struct {
 	// +kubebuilder:validation:Required
 	Condition RuleCondition `json:"condition"`
 
-	// The evaluation window, as a kind and spec. Required when schemaVersion is v2alpha1; derived from evalWindow and frequency for v1.
+	// The evaluation window, as a kind and spec.
 	// +kubebuilder:validation:Required
 	Evaluation RuleEvaluation `json:"evaluation"`
 
-	// Grouping, re-notification and routing behaviour. Required when schemaVersion is v2alpha1; derived from the v1 fields otherwise.
+	// Grouping, re-notification and routing behaviour.
 	// +kubebuilder:validation:Required
 	NotificationSettings RuleNotificationSettings `json:"notificationSettings"`
 
-	// The evaluation strategy: threshold_rule compares against thresholds, promql_rule evaluates a PromQL expression, anomaly_rule scores deviation from seasonal history. Defaults to threshold_rule for builder queries and is forced to promql_rule for promql queries.
+	// The evaluation strategy: threshold_rule compares against thresholds, promql_rule evaluates a PromQL expression, anomaly_rule scores deviation from seasonal history. Defaults to threshold_rule for builder and clickhouse_sql queries and is forced to promql_rule for promql queries.
 	// +kubebuilder:validation:Enum=threshold_rule;promql_rule;anomaly_rule
 	// +kubebuilder:validation:Required
 	RuleType string `json:"ruleType"`
 
-	// The rule payload schema: v1 (the default when omitted) uses the flat condition fields, v2alpha1 uses condition.thresholds, evaluation and notificationSettings.
+	// The rule payload schema.
 	// +kubebuilder:validation:Enum=v2alpha1
 	// +kubebuilder:validation:Required
 	SchemaVersion string `json:"schemaVersion"`
@@ -63,12 +63,12 @@ type RuleCondition struct {
 	// +kubebuilder:validation:Required
 	CompositeQuery RuleCompositeQuery `json:"compositeQuery"`
 
-	// The name of the query whose result is evaluated, such as A or F1. Must match a query in compositeQuery. When omitted, F1 is used if present, otherwise the enabled query with the highest name.
+	// The name of the query whose result is evaluated, such as A or F1. Must match a query in compositeQuery.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	SelectedQueryName string `json:"selectedQueryName"`
 
-	// The thresholds to evaluate, as a kind and spec. Required when schemaVersion is v2alpha1; derived from op, target and matchType for v1.
+	// The thresholds to evaluate, as a kind and spec.
 	// +kubebuilder:validation:Required
 	Thresholds RuleThresholds `json:"thresholds"`
 
@@ -79,10 +79,6 @@ type RuleCondition struct {
 	// Whether to fire a nodata alert when the query returns no data. Defaults to false.
 	// +optional
 	AlertOnAbsent bool `json:"alertOnAbsent,omitempty"`
-
-	// anomaly_rule only: the anomaly detection algorithm. The supported value is standard.
-	// +optional
-	Algorithm string `json:"algorithm,omitempty"`
 
 	// Whether a series is skipped until it has at least requiredNumPoints points in the window. Defaults to false.
 	// +optional

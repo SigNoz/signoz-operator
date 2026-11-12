@@ -29,7 +29,7 @@ type NotificationChannelObjectSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.kind != 'opsgenie' || has(self.spec.apiKey)",message="kind opsgenie requires spec.apiKey"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'msteams' || has(self.spec.webhookUrl)",message="kind msteams requires spec.webhookUrl"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'googlechat' || has(self.spec.webhookUrl)",message="kind googlechat requires spec.webhookUrl"
-// +kubebuilder:validation:XValidation:rule="self.kind != 'jira' || (has(self.spec.site) && has(self.spec.project) && has(self.spec.issueType) && has(self.spec.email) && has(self.spec.apiToken))",message="kind jira requires spec.site, spec.project, spec.issueType, spec.email, spec.apiToken"
+// +kubebuilder:validation:XValidation:rule="self.kind != 'jira' || (has(self.spec.deployment) && has(self.spec.site) && has(self.spec.project) && has(self.spec.issueType) && has(self.spec.auth))",message="kind jira requires spec.deployment, spec.site, spec.project, spec.issueType, spec.auth"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'jsmops' || has(self.spec.apiKey)",message="kind jsmops requires spec.apiKey"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'incidentio' || (has(self.spec.url) && has(self.spec.token))",message="kind incidentio requires spec.url, spec.token"
 // +kubebuilder:validation:XValidation:rule="self.kind != 'telegram' || (has(self.spec.botToken) && has(self.spec.chatId))",message="kind telegram requires spec.botToken, spec.chatId"
@@ -52,12 +52,12 @@ type NotificationChannelConfigSpec struct {
 	// +optional
 	ApiKey string `json:"apiKey,omitempty"`
 
-	// The Atlassian API token paired with email. A secret; returned by create, update and fetch by ID, never by list.
-	// +optional
-	ApiToken string `json:"apiToken,omitempty"`
-
 	// +optional
 	ApiUrl string `json:"apiUrl,omitempty"`
+
+	// The credentials: email and apiToken when deployment is cloud, pat when deployment is selfhosted.
+	// +optional
+	Auth *NotificationChannelAuth `json:"auth,omitempty"`
 
 	// The bearer token sent in the Authorization header; cannot be combined with username or password.
 	// +optional
@@ -98,6 +98,11 @@ type NotificationChannelConfigSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	CustomFields *apiextensionsv1.JSON `json:"customFields,omitempty"`
 
+	// The Jira edition: cloud for an Atlassian-hosted site, selfhosted for Jira Server or Data Center.
+	// +kubebuilder:validation:Enum=cloud;selfhosted
+	// +optional
+	Deployment string `json:"deployment,omitempty"`
+
 	// +optional
 	Description string `json:"description,omitempty"`
 
@@ -106,10 +111,6 @@ type NotificationChannelConfigSpec struct {
 
 	// +optional
 	DisableNotifications bool `json:"disableNotifications,omitempty"`
-
-	// The Atlassian account email used for basic auth.
-	// +optional
-	Email string `json:"email,omitempty"`
 
 	// Alertmanager template for the plain-text summary shown where attachments cannot render; defaults to the Alertmanager Slack default.
 	// +optional
@@ -191,7 +192,7 @@ type NotificationChannelConfigSpec struct {
 	// +optional
 	Severity string `json:"severity,omitempty"`
 
-	// The base URL of the Jira Cloud site, for example https://example.atlassian.net. Only Jira Cloud is supported.
+	// The base URL of the Jira site, for example https://example.atlassian.net or https://jira.example.com.
 	// +optional
 	Site string `json:"site,omitempty"`
 
@@ -288,6 +289,20 @@ type NotificationChannelConfirm struct {
 	// The dialog title.
 	// +optional
 	Title string `json:"title,omitempty"`
+}
+
+type NotificationChannelAuth struct {
+	// The Atlassian API token paired with email. Required when deployment is cloud. A secret; returned by create, update and fetch by ID, never by list.
+	// +optional
+	ApiToken string `json:"apiToken,omitempty"`
+
+	// The Atlassian account email used for basic auth. Required when deployment is cloud.
+	// +optional
+	Email string `json:"email,omitempty"`
+
+	// The Jira personal access token, sent as a Bearer header. Required when deployment is selfhosted. A secret; returned by create, update and fetch by ID, never by list.
+	// +optional
+	Pat string `json:"pat,omitempty"`
 }
 
 type NotificationChannelField struct {
