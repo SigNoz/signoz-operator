@@ -12,6 +12,7 @@ from fixtures.signoz import SigNoz
 logger = logging.getLogger(__name__)
 
 RULES_BASE_URL = "/api/v2/rules"
+RULES_LIST_URL = "/api/v3/rules"
 
 
 def rule_body(path: Path, name: str, channel: str) -> dict[str, Any]:
@@ -50,11 +51,11 @@ def rule_name(signoz: SigNoz, test_id: str) -> str:
 
     yield name
 
-    listing = signoz.get(RULES_BASE_URL)
+    listing = signoz.get(f"{RULES_LIST_URL}?limit=200&offset=0")
     if listing.status_code != HTTPStatus.OK:
         logger.warning("Could not list rules to reclaim: %s", listing.text)
         return
 
-    for rule in listing.json()["data"]:
+    for rule in listing.json()["data"]["rules"]:
         if rule["alert"] == name:
             signoz.delete(f"{RULES_BASE_URL}/{rule['id']}")

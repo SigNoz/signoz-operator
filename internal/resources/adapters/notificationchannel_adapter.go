@@ -24,5 +24,5 @@ func NewNotificationChannelAdapter() *NotificationChannelAdapter {
 
 func (*NotificationChannelAdapter) Find(ctx context.Context, c clients.SigNoz, obj resources.Object) ([]*v1alpha1.SigNozResource, error) {
 	// The list's query parameter matches displayName, not name, so every page is walked.
-	return findByPage(ctx, c, obj, notificationChannelsPath, "channels")
+	return findByPage(ctx, c, obj, notificationChannelsPath, "channels", "name")
 }
