@@ -8,9 +8,11 @@ import (
 
 	"github.com/SigNoz/signoz-operator/internal/instrumentation"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -32,6 +34,7 @@ type config struct {
 	DefaultResourcesRetryInterval time.Duration
 	DefaultResourcesTimeout       time.Duration
 	WatchNamespaces               []string
+	ReferenceNamespaces           []string
 	OperatorNamespace             string
 }
 
@@ -54,6 +57,7 @@ func (c *config) RegisterFlags(cmd *cobra.Command) {
 	flags.DurationVar(&c.DefaultResourcesRetryInterval, "default-resources-retry-interval", time.Minute, "Interval at which a recoverable failure is retried. Applicable only when the resource spec omits .spec.retryInterval.")
 	flags.DurationVar(&c.DefaultResourcesTimeout, "default-resources-timeout", 30*time.Second, "Upper bound on a single reconciliation attempt when a resource's spec omits one. This includes the time taken by the SigNoz API.")
 	flags.StringSliceVar(&c.WatchNamespaces, "watch-namespaces", nil, "The namespace(s) the manager should watch for changes. Defaults to watching all namespaces.")
+	flags.StringSliceVar(&c.ReferenceNamespaces, "reference-namespaces", nil, "The namespace(s) the manager reads Secrets and ConfigMaps in, the operator namespace always among them. Defaults to the namespaces it watches.")
 	flags.StringVar(&c.OperatorNamespace, "operator-namespace", "", "Namespace in which the operator is running. A ClusterProviderConfig's Secret and ConfigMap references resolve here.")
 }
 
@@ -129,22 +133,46 @@ func (c *config) buildMetricsServerOptions() metricsserver.Options {
 }
 
 func (c *config) buildCacheOptions() cache.Options {
-	if len(c.WatchNamespaces) == 0 {
-		return cache.Options{}
+	options := cache.Options{}
+
+	if watched := c.namespaceConfigs(c.WatchNamespaces); watched != nil {
+		setupLog.Info("Watching namespace(s)", "namespaces", c.WatchNamespaces, "operatorNamespace", c.OperatorNamespace)
+
+		options.DefaultNamespaces = watched
 	}
 
-	namespaces := make(map[string]cache.Config, len(c.WatchNamespaces)+1)
+	// Scoped apart from the watched namespaces, so that watching resources
+	// everywhere does not start a cluster-wide Secret informer.
+	if referenced := c.namespaceConfigs(c.ReferenceNamespaces); referenced != nil {
+		setupLog.Info("Reading Secrets and ConfigMaps in namespace(s)", "namespaces", c.ReferenceNamespaces, "operatorNamespace", c.OperatorNamespace)
 
-	for _, ns := range c.WatchNamespaces {
-		if ns = strings.TrimSpace(ns); ns != "" {
-			namespaces[ns] = cache.Config{}
+		options.ByObject = map[client.Object]cache.ByObject{
+			&corev1.Secret{}:    {Namespaces: referenced},
+			&corev1.ConfigMap{}: {Namespaces: referenced},
 		}
 	}
 
-	namespaces[c.OperatorNamespace] = cache.Config{}
-	setupLog.Info("Watching namespace(s)", "namespaces", c.WatchNamespaces, "operatorNamespace", c.OperatorNamespace)
+	return options
+}
 
-	return cache.Options{DefaultNamespaces: namespaces}
+// namespaceConfigs returns nil, meaning every namespace, when none is named.
+// Otherwise the operator namespace is always included.
+func (c *config) namespaceConfigs(namespaces []string) map[string]cache.Config {
+	configs := make(map[string]cache.Config, len(namespaces)+1)
+
+	for _, ns := range namespaces {
+		if ns = strings.TrimSpace(ns); ns != "" {
+			configs[ns] = cache.Config{}
+		}
+	}
+
+	if len(configs) == 0 {
+		return nil
+	}
+
+	configs[c.OperatorNamespace] = cache.Config{}
+
+	return configs
 }
 
 func (c *config) buildLogger() error {
