@@ -229,7 +229,7 @@ A body that will not parse fails at the seam, before anything else runs. Both `R
 
 - Schema defaults fire only on the typed form. Where a CRD default fills a field the user omitted, a typed resource sends it explicitly while a `jsonSpec` resource relies on SigNoz's own defaulting. The end state matches today; it will diverge the first time a server-side default changes.
 
-- A credential cannot be read from a Secret on the encoded forms. The `value`/`valueFrom` shape needs a typed field to hang on, so an auth domain carrying an OAuth client secret has that secret in plaintext in the resource unless it uses the typed form. There is no substitution mechanism, and adding one is real scope.
+- A credential in the body is read from a Secret through `spec.valuesFrom` ([core-spec.md](core-spec.md)), which sets a field of the rendered body by path. It works on the typed and the encoded forms alike, so an auth domain's OAuth client secret need not sit in the resource. The typed fields themselves stay plain values: there is no per-field `value`/`valueFrom`.
 
 - The word "spec" repeats down the path: twice before the body begins, and again for every `spec` the body has of its own — `spec.objectTemplate.spec.spec.panels` on a dashboard, `spec.objectTemplate.spec.config.spec.entityId` on an auth domain. Prose has to say which one it means, and `kubectl explain dashboard.spec.objectTemplate.spec` is a command people will fumble.
 

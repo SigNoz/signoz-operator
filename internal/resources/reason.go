@@ -34,6 +34,10 @@ var (
 	// resolved into a connection. Attributable to the provider config.
 	ReasonProviderConfigNotReady = Reason{s: "ProviderConfigNotReady"}
 
+	// ReasonValuesFromNotReady is a spec.valuesFrom reference that could not
+	// be read: the Secret or ConfigMap, or the key inside it, is missing.
+	ReasonValuesFromNotReady = Reason{s: "ValuesFromNotReady"}
+
 	// ReasonBackendError is a transient error from SigNoz (5xx/429).
 	ReasonBackendError = Reason{s: "BackendError"}
 

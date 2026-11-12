@@ -976,6 +976,87 @@ spec:
                   to SigNoz. Omitted, it falls back to the operator-wide default.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
+              valuesFrom:
+                description: |-
+                  ValuesFrom fills fields of the body from Secrets and ConfigMaps, so a
+                  credential need not sit in the template. It applies to both template
+                  forms. The field the object's identity is read from cannot be set here.
+                items:
+                  description: |-
+                    ValueFrom sets one field of the body sent to SigNoz from a Secret or
+                    ConfigMap key in the resource's own namespace.
+                  properties:
+                    path:
+                      description: |-
+                        Path is the field to set, as dot-separated keys from the root of the
+                        body; a number indexes into a list. It replaces whatever the template
+                        holds there.
+                      pattern: ^[^.]+(\.[^.]+)*$
+                      type: string
+                    valueFrom:
+                      description: |-
+                        ValueSource is the analog of corev1.EnvVarSource without the pod-only
+                        fieldRef/resourceFieldRef. References are name-only, so they resolve in the
+                        object's own namespace.
+                      maxProperties: 1
+                      minProperties: 1
+                      properties:
+                        configMapKeyRef:
+                          description: Selects a key from a ConfigMap.
+                          properties:
+                            key:
+                              description: The key to select.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        secretKeyRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                  required:
+                  - path
+                  - valueFrom
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - path
+                x-kubernetes-list-type: map
             required:
             - objectTemplate
             - providerConfigRef
