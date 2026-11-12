@@ -118,6 +118,7 @@ spec:
                                       - logs-field
                                       - traces-field
                                       - metrics-field
+                                      - llm-pricing-rule
                                       type: string
                                     type:
                                       enum:

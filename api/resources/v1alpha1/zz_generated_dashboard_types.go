@@ -160,7 +160,7 @@ type DashboardPanelSpec struct {
 
 type DashboardPlugin struct {
 	// The panel kind.
-	// +kubebuilder:validation:Enum=signoz/TimeSeriesPanel;signoz/BarChartPanel;signoz/AreaChartPanel;signoz/NumberPanel;signoz/PieChartPanel;signoz/TablePanel;signoz/HistogramPanel;signoz/ListPanel;signoz/TextPanel;signoz/HeatmapPanel
+	// +kubebuilder:validation:Enum=signoz/TimeSeriesPanel;signoz/BarChartPanel;signoz/AreaChartPanel;signoz/NumberPanel;signoz/PieChartPanel;signoz/TablePanel;signoz/HistogramPanel;signoz/ListPanel;signoz/TextPanel;signoz/HeatmapPanel;signoz/ScatterPlotPanel
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 
@@ -175,6 +175,10 @@ type DashboardPluginSpec struct {
 
 	// +optional
 	ChartAppearance *DashboardChartAppearance `json:"chartAppearance,omitempty"`
+
+	// Which result columns place, size and color the dots. Each dot is one row of the joined scalar result: one group.
+	// +optional
+	Dimensions *DashboardDimensions `json:"dimensions,omitempty"`
 
 	// +optional
 	Formatting *DashboardFormatting `json:"formatting,omitempty"`
@@ -227,16 +231,49 @@ type DashboardAxes struct {
 	// +optional
 	SoftMin *float64 `json:"softMin,omitempty"`
 
-	// The bucket axis.
+	// The axis dimensions.x is plotted along.
+	// +optional
+	X *DashboardX `json:"x,omitempty"`
+
 	// +optional
 	Y *DashboardY `json:"y,omitempty"`
 }
 
-type DashboardY struct {
-	// How bucket bounds are spaced on the axis: auto (default), linear, log or symlog.
+type DashboardX struct {
+	// Axis title. Empty draws none; the tooltip still names the column.
+	// +optional
+	Label string `json:"label,omitempty"`
+
+	// auto (default) uses log, or symlog when values include zero or negatives, when that spreads the dots clearly more than linear does; otherwise linear. log cannot place a value at or below zero and leaves that dot out; symlog is log-like but places it.
 	// +kubebuilder:validation:Enum=auto;linear;log;symlog
 	// +optional
 	Scale string `json:"scale,omitempty"`
+
+	// The highest value the axis always shows; data above it still extends the axis, as does a threshold on it. Null fits the data.
+	// +optional
+	SoftMax *float64 `json:"softMax,omitempty"`
+
+	// The lowest value the axis always shows; data below it still extends the axis, as does a threshold on it. Null fits the data. A log axis ignores a bound at or below zero.
+	// +optional
+	SoftMin *float64 `json:"softMin,omitempty"`
+}
+
+type DashboardY struct {
+	// Axis title. Empty draws none; the tooltip still names the column.
+	// +optional
+	Label string `json:"label,omitempty"`
+
+	// +kubebuilder:validation:Enum=auto;linear;log;symlog
+	// +optional
+	Scale string `json:"scale,omitempty"`
+
+	// The highest value the axis always shows; data above it still extends the axis, as does a threshold on it. Null fits the data.
+	// +optional
+	SoftMax *float64 `json:"softMax,omitempty"`
+
+	// The lowest value the axis always shows; data below it still extends the axis, as does a threshold on it. Null fits the data. A log axis ignores a bound at or below zero.
+	// +optional
+	SoftMin *float64 `json:"softMin,omitempty"`
 }
 
 type DashboardChartAppearance struct {
@@ -261,6 +298,10 @@ type DashboardChartAppearance struct {
 	// +kubebuilder:validation:Enum=solid;dashed
 	// +optional
 	LineStyle string `json:"lineStyle,omitempty"`
+
+	// Dot size and opacity.
+	// +optional
+	Points *DashboardPoints `json:"points,omitempty"`
 
 	// Whether each data point is marked on the line.
 	// +optional
@@ -304,6 +345,24 @@ type DashboardColors struct {
 	Steps int64 `json:"steps,omitempty"`
 }
 
+type DashboardPoints struct {
+	// Diameter of the largest dot when dimensions.sizeBy is set, in CSS pixels from 2 to 40. Null means 24.
+	// +optional
+	MaxSize *int64 `json:"maxSize,omitempty"`
+
+	// Diameter of the smallest dot when dimensions.sizeBy is set, in CSS pixels from 2 to 40. Null means 4.
+	// +optional
+	MinSize *int64 `json:"minSize,omitempty"`
+
+	// Fill opacity of every dot, from 0.1 to 1. Null means 0.7.
+	// +optional
+	Opacity *float64 `json:"opacity,omitempty"`
+
+	// Diameter of every dot when dimensions.sizeBy is unset, in CSS pixels from 2 to 40. Null means 6.
+	// +optional
+	Size *int64 `json:"size,omitempty"`
+}
+
 type DashboardSpanGaps struct {
 	// The largest gap still connected when fillOnlyBelow is true; longer gaps are left disconnected. Required in that case, as a positive Prometheus duration such as 30s, 5m or 1d.
 	// +optional
@@ -312,6 +371,24 @@ type DashboardSpanGaps struct {
 	// Controls whether lines connect across null values. When false (default), all gaps are connected. When true, only gaps smaller than fillLessThan are connected.
 	// +optional
 	FillOnlyBelow bool `json:"fillOnlyBelow,omitempty"`
+}
+
+type DashboardDimensions struct {
+	// Group-by label names (e.g. k8s.namespace.name) whose combined values color the dots and drive the legend. Empty colors by every group-by label.
+	// +optional
+	ColorBy []string `json:"colorBy,omitempty"`
+
+	// Value column key that scales each dot's area between chartAppearance.points.minSize and maxSize. Empty draws every dot at chartAppearance.points.size, as does a dot with no value.
+	// +optional
+	SizeBy string `json:"sizeBy,omitempty"`
+
+	// Value column key (queryName, or queryName.expression for a multi-aggregation query) plotted on the x axis. Empty, or a key the result lacks, uses the first value column.
+	// +optional
+	X string `json:"x,omitempty"`
+
+	// Value column key plotted on the y axis. Empty, or a key the result lacks, uses the first value column x does not use.
+	// +optional
+	Y string `json:"y,omitempty"`
 }
 
 type DashboardFormatting struct {
@@ -419,6 +496,11 @@ type DashboardThreshold struct {
 	// +kubebuilder:validation:Required
 	Value float64 `json:"value"`
 
+	// The axis the line marks: y (default) draws it horizontally, x vertically. Unit converts against that axis's column unit, and the axis extends to keep the line in view.
+	// +kubebuilder:validation:Enum=x;y
+	// +optional
+	Axis string `json:"axis,omitempty"`
+
 	// The key of the value column the rule applies to: the query name for a builder query with one aggregation (A), the query name dotted with the aggregation expression for several (A.count()), or the SQL alias for a ClickHouse SQL column. Group-by columns are never colored, and aggregation aliases are display labels, not keys.
 	// +optional
 	ColumnName string `json:"columnName,omitempty"`
@@ -464,7 +546,7 @@ type DashboardVisualization struct {
 
 type DashboardQuery struct {
 	// The result shape the panel requests: time_series for time series, bar, area and histogram panels, scalar for number, table and pie panels, raw for list panels, heatmap for heatmap panels, trace for trace panels.
-	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap
+	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap;distribution
 	// +kubebuilder:validation:Required
 	Kind string `json:"kind"`
 

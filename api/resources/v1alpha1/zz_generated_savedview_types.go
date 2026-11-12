@@ -44,7 +44,7 @@ type SavedViewSpecPayload struct {
 	Queries []SavedViewQuery `json:"queries"`
 
 	// The query_range request type the panel issues: raw for list panels, time_series for graphs, scalar for table and value panels, trace for trace panels.
-	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap
+	// +kubebuilder:validation:Enum=scalar;time_series;raw;raw_stream;trace;heatmap;distribution
 	// +kubebuilder:validation:Required
 	RequestType string `json:"requestType"`
 
