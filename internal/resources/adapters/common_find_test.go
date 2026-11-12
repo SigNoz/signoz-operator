@@ -178,6 +178,8 @@ func TestFindByPage(t *testing.T) {
 
 	testCases := []struct {
 		name          string
+		field         string
+		identity      string
 		pages         []string
 		status        int
 		expectedPages int
@@ -185,7 +187,9 @@ func TestFindByPage(t *testing.T) {
 		expectedErr   string
 	}{
 		{
-			name: "MatchesAcrossPages_AllIDs",
+			name:     "MatchesAcrossPages_AllIDs",
+			field:    nameField,
+			identity: prodIdentity,
 			pages: []string{
 				`{"status":"success","data":{"things":[{"id":"1","name":"prod"},{"id":"2","name":"dev"}],"total":101}}`,
 				`{"status":"success","data":{"things":[{"id":"3","name":"prod"}],"total":101}}`,
@@ -196,13 +200,17 @@ func TestFindByPage(t *testing.T) {
 		},
 		{
 			name:          "TotalReachedOnFirstPage_OnePage",
+			field:         nameField,
+			identity:      prodIdentity,
 			pages:         []string{`{"status":"success","data":{"things":[{"id":"1","name":"prod"}],"total":1}}`},
 			status:        http.StatusOK,
 			expectedPages: 1,
 			expectedIDs:   []string{"1"},
 		},
 		{
-			name: "TotalOvercounts_StopsOnEmptyPage",
+			name:     "TotalOvercounts_StopsOnEmptyPage",
+			field:    nameField,
+			identity: prodIdentity,
 			pages: []string{
 				`{"status":"success","data":{"things":[{"id":"1","name":"dev"}],"total":500}}`,
 				`{"status":"success","data":{"things":[],"total":500}}`,
@@ -211,13 +219,28 @@ func TestFindByPage(t *testing.T) {
 			expectedPages: 2,
 		},
 		{
+			name:     "IdentityInAnotherField_OneID",
+			field:    "alert",
+			identity: "high latency",
+			pages: []string{
+				`{"status":"success","data":{"things":[{"id":"1","alert":"high latency","name":"high latency copy"},{"id":"2","alert":"low disk"}],"total":2}}`,
+			},
+			status:        http.StatusOK,
+			expectedPages: 1,
+			expectedIDs:   []string{"1"},
+		},
+		{
 			name:          "NameMatchIsCaseSensitive_NoID",
+			field:         nameField,
+			identity:      prodIdentity,
 			pages:         []string{`{"status":"success","data":{"things":[{"id":"1","name":"Prod"}],"total":1}}`},
 			status:        http.StatusOK,
 			expectedPages: 1,
 		},
 		{
 			name:          "ResponseCarriesNoData_Error",
+			field:         nameField,
+			identity:      prodIdentity,
 			pages:         []string{`{"status":"success"}`},
 			status:        http.StatusOK,
 			expectedPages: 1,
@@ -225,6 +248,8 @@ func TestFindByPage(t *testing.T) {
 		},
 		{
 			name:          "ListIsNotAnArray_Error",
+			field:         nameField,
+			identity:      prodIdentity,
 			pages:         []string{`{"status":"success","data":{"things":{"id":"1","name":"prod"},"total":1}}`},
 			status:        http.StatusOK,
 			expectedPages: 1,
@@ -232,6 +257,8 @@ func TestFindByPage(t *testing.T) {
 		},
 		{
 			name:          "MatchingEntryCarriesNoID_Error",
+			field:         nameField,
+			identity:      prodIdentity,
 			pages:         []string{`{"status":"success","data":{"things":[{"name":"prod"}],"total":1}}`},
 			status:        http.StatusOK,
 			expectedPages: 1,
@@ -239,6 +266,8 @@ func TestFindByPage(t *testing.T) {
 		},
 		{
 			name:          "ServerRejectsTheRequest_Error",
+			field:         nameField,
+			identity:      prodIdentity,
 			pages:         []string{`{"error":"no access"}`},
 			status:        http.StatusForbidden,
 			expectedPages: 1,
@@ -273,9 +302,9 @@ func TestFindByPage(t *testing.T) {
 			require.NoError(t, err)
 
 			obj := resourcestest.NewMockObject(t)
-			obj.EXPECT().Identity().Return(prodIdentity, nil)
+			obj.EXPECT().Identity().Return(testCase.identity, nil)
 
-			matches, err := findByPage(context.Background(), clients.New(&providerconfig.ResolvedProviderConfigSpec{Endpoint: endpoint}), obj, pagedPath, "things")
+			matches, err := findByPage(context.Background(), clients.New(&providerconfig.ResolvedProviderConfigSpec{Endpoint: endpoint}), obj, pagedPath, "things", testCase.field)
 
 			assert.Equal(t, testCase.expectedPages, requestedPages)
 

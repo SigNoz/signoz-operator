@@ -23,5 +23,5 @@ func NewDashboardAdapter() *DashboardAdapter {
 }
 
 func (*DashboardAdapter) Find(ctx context.Context, c clients.SigNoz, obj resources.Object) ([]*v1alpha1.SigNozResource, error) {
-	return findByPage(ctx, c, obj, dashboardsPath, "dashboards")
+	return findByPage(ctx, c, obj, dashboardsPath, "dashboards", "name")
 }

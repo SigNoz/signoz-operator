@@ -51,6 +51,7 @@ func Intersect(x, y []string) []string {
 }
 
 // isDeepZero reports a JSON zero value, or an object holding only zero values.
+// "0s" counts as zero: it is how SigNoz renders an unset Go duration.
 func isDeepZero(value any) bool {
 	switch value := value.(type) {
 	case nil:
@@ -60,7 +61,7 @@ func isDeepZero(value any) bool {
 	case float64:
 		return value == 0
 	case string:
-		return value == ""
+		return value == "" || value == "0s"
 	case []any:
 		return len(value) == 0
 	case map[string]any:

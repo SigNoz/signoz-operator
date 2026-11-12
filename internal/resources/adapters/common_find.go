@@ -57,8 +57,8 @@ func findByField(ctx context.Context, c clients.SigNoz, obj resources.Object, pa
 const findPageLimit = 100
 
 // Expects {data: {<listKey>: [...], total}} and walks every page because
-// these endpoints cannot filter by name.
-func findByPage(ctx context.Context, c clients.SigNoz, obj resources.Object, path, listKey string) ([]*v1alpha1.SigNozResource, error) {
+// these endpoints cannot filter by the identity field.
+func findByPage(ctx context.Context, c clients.SigNoz, obj resources.Object, path, listKey, field string) ([]*v1alpha1.SigNozResource, error) {
 	identity, err := obj.Identity()
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func findByPage(ctx context.Context, c clients.SigNoz, obj resources.Object, pat
 
 		entries := list.Array()
 		for _, entry := range entries {
-			if entry.Get("name").String() != identity {
+			if entry.Get(field).String() != identity {
 				continue
 			}
 

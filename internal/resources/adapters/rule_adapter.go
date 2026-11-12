@@ -8,7 +8,7 @@ import (
 	"github.com/SigNoz/signoz-operator/internal/resources"
 )
 
-const rulesPath = "/api/v2/rules"
+const rulesPath = "/api/v3/rules"
 
 var (
 	_ resources.Adapter = &RuleAdapter{}
@@ -23,5 +23,5 @@ func NewRuleAdapter() *RuleAdapter {
 }
 
 func (*RuleAdapter) Find(ctx context.Context, c clients.SigNoz, obj resources.Object) ([]*v1alpha1.SigNozResource, error) {
-	return findByField(ctx, c, obj, rulesPath, "alert")
+	return findByPage(ctx, c, obj, rulesPath, "rules", "alert")
 }
