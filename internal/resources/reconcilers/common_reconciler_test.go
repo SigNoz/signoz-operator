@@ -77,12 +77,10 @@ func TestTimeout(t *testing.T) {
 			// The object must exist in the client for the status update at the end of
 			// Reconcile to succeed.
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "timeout",
-					Namespace:  "timeout-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
-				Spec: resourcesv1alpha1.CoreSpec{Timeout: testCase.specTimeout},
+				Name:       "timeout",
+				Namespace:  "timeout-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
+				Spec:       resourcesv1alpha1.CoreSpec{Timeout: testCase.specTimeout},
 			}
 			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
@@ -155,11 +153,9 @@ func TestAddFinalizerAndSuspend(t *testing.T) {
 	// The object starts without the finalizer and must exist in the client for
 	// addFinalizer's Update to succeed.
 	k8sObject := &v1alpha1test.FakeObject{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "suspend",
-			Namespace: "suspend-ns",
-		},
-		Spec: resourcesv1alpha1.CoreSpec{Suspend: true},
+		Name:      "suspend",
+		Namespace: "suspend-ns",
+		Spec:      resourcesv1alpha1.CoreSpec{Suspend: true},
 	}
 	require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
@@ -305,11 +301,9 @@ func TestNewObject(t *testing.T) {
 			// The object must exist in the client for the create-attempt annotation
 			// patch and the status update at the end of Reconcile to succeed.
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "new-object",
-					Namespace:  "new-object-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
+				Name:       "new-object",
+				Namespace:  "new-object-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 			}
 			if testCase.pinnedID != "" {
 				k8sObject.Annotations = map[string]string{resourcesv1alpha1.AnnotationSigNozResourceID: testCase.pinnedID}
@@ -417,11 +411,9 @@ func TestInvalidSpec(t *testing.T) {
 			// The object must exist in the client for the status update at the end of
 			// Reconcile to succeed.
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "invalid-spec",
-					Namespace:  "invalid-spec-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
+				Name:       "invalid-spec",
+				Namespace:  "invalid-spec-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 			}
 			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
@@ -508,11 +500,9 @@ func TestClientWriteFails(t *testing.T) {
 			// The object is deliberately never created in the client, so every write
 			// the reconciler attempts against it fails.
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "client-write",
-					Namespace: "client-write-ns",
-				},
-				Spec: resourcesv1alpha1.CoreSpec{Suspend: testCase.suspend},
+				Name:      "client-write",
+				Namespace: "client-write-ns",
+				Spec:      resourcesv1alpha1.CoreSpec{Suspend: testCase.suspend},
 			}
 			if testCase.hasFinalizer {
 				k8sObject.Finalizers = []string{resourcesv1alpha1.ResourceFinalizer}
@@ -676,12 +666,10 @@ func TestExistingObject(t *testing.T) {
 			// spec.retryInterval is set so a recoverable requeue is distinguishable
 			// from both the steady-state interval and requeueAfterOnNotFound.
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "existing-object",
-					Namespace:  "existing-object-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
-				Spec: resourcesv1alpha1.CoreSpec{RetryInterval: &metav1.Duration{Duration: 3 * time.Second}},
+				Name:       "existing-object",
+				Namespace:  "existing-object-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
+				Spec:       resourcesv1alpha1.CoreSpec{RetryInterval: &metav1.Duration{Duration: 3 * time.Second}},
 			}
 			if testCase.hasCreateAttempt {
 				k8sObject.Annotations = map[string]string{resourcesv1alpha1.AnnotationCreateAttempt: "2026-02-02T00:00:00Z"}
@@ -801,11 +789,9 @@ func TestCreateFails(t *testing.T) {
 			reconciler, resolver, adapter := newTestReconciler(t)
 
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "create-fails",
-					Namespace:  "create-fails-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
+				Name:       "create-fails",
+				Namespace:  "create-fails-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 			}
 			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
@@ -854,11 +840,9 @@ func TestCreateAttemptAnnotationRemovalFails(t *testing.T) {
 	reconciler, resolver, adapter := newTestReconciler(t)
 
 	k8sObject := &v1alpha1test.FakeObject{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       "annotation-removal",
-			Namespace:  "annotation-removal-ns",
-			Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-		},
+		Name:       "annotation-removal",
+		Namespace:  "annotation-removal-ns",
+		Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 	}
 
 	// create patches the annotation on before issuing the create and off again
@@ -959,11 +943,9 @@ func TestConflict(t *testing.T) {
 			reconciler, resolver, adapter := newTestReconciler(t)
 
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "conflict",
-					Namespace:  "conflict-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
+				Name:       "conflict",
+				Namespace:  "conflict-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 			}
 			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
@@ -1100,12 +1082,10 @@ func TestFinalize(t *testing.T) {
 			reconciler, resolver, adapter := newTestReconciler(t)
 
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "finalize",
-					Namespace:  "finalize-ns",
-					Finalizers: testCase.finalizers,
-				},
-				Spec: resourcesv1alpha1.CoreSpec{ReclaimPolicy: testCase.reclaimPolicy},
+				Name:       "finalize",
+				Namespace:  "finalize-ns",
+				Finalizers: testCase.finalizers,
+				Spec:       resourcesv1alpha1.CoreSpec{ReclaimPolicy: testCase.reclaimPolicy},
 			}
 			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 
@@ -1208,12 +1188,10 @@ func TestFinalizeUnconfirmedCreate(t *testing.T) {
 			// No id was ever recorded, but the create-attempt annotation says an
 			// object may have been left behind in SigNoz.
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "unconfirmed-create",
-					Namespace:   "unconfirmed-create-ns",
-					Finalizers:  []string{resourcesv1alpha1.ResourceFinalizer},
-					Annotations: map[string]string{resourcesv1alpha1.AnnotationCreateAttempt: "2026-03-03T00:00:00Z"},
-				},
+				Name:        "unconfirmed-create",
+				Namespace:   "unconfirmed-create-ns",
+				Finalizers:  []string{resourcesv1alpha1.ResourceFinalizer},
+				Annotations: map[string]string{resourcesv1alpha1.AnnotationCreateAttempt: "2026-03-03T00:00:00Z"},
 			}
 			require.NoError(t, reconciler.client.Create(context.Background(), k8sObject))
 			require.NoError(t, reconciler.client.Delete(context.Background(), k8sObject))
@@ -1316,11 +1294,9 @@ func TestIntervals(t *testing.T) {
 			reconciler.defaultRetryInterval = testCase.defaultRetryInterval
 
 			k8sObject := &v1alpha1test.FakeObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "intervals",
-					Namespace:  "intervals-ns",
-					Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
-				},
+				Name:       "intervals",
+				Namespace:  "intervals-ns",
+				Finalizers: []string{resourcesv1alpha1.ResourceFinalizer},
 				Spec: resourcesv1alpha1.CoreSpec{
 					Interval:      testCase.specInterval,
 					RetryInterval: testCase.specRetryInterval,

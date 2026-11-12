@@ -123,12 +123,10 @@ func TestReconcile(t *testing.T) {
 			t.Parallel()
 
 			config := &resourcesv1alpha1.ProviderConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "tenant-backend",
-					Namespace:  "tenant",
-					Generation: testCase.generation,
-				},
-				Spec: newTestSpec("https://signoz.tenant.svc:8080"),
+				Name:       "tenant-backend",
+				Namespace:  "tenant",
+				Generation: testCase.generation,
+				Spec:       newTestSpec("https://signoz.tenant.svc:8080"),
 			}
 
 			kubeClient := newTestClient(t, config)
@@ -190,11 +188,9 @@ func TestReconcileClusterProviderConfig(t *testing.T) {
 			t.Parallel()
 
 			config := &resourcesv1alpha1.ClusterProviderConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "shared-backend",
-					Generation: 2,
-				},
-				Spec: newTestSpec("https://signoz.shared.svc:8080"),
+				Name:       "shared-backend",
+				Generation: 2,
+				Spec:       newTestSpec("https://signoz.shared.svc:8080"),
 			}
 
 			kubeClient := newTestClient(t, config)
@@ -256,12 +252,10 @@ func TestReconcileTwice(t *testing.T) {
 			t.Parallel()
 
 			config := &resourcesv1alpha1.ProviderConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "steady-backend",
-					Namespace:  "steady",
-					Generation: 1,
-				},
-				Spec: newTestSpec("https://signoz.steady.svc:8080"),
+				Name:       "steady-backend",
+				Namespace:  "steady",
+				Generation: 1,
+				Spec:       newTestSpec("https://signoz.steady.svc:8080"),
 			}
 
 			updates := 0
@@ -305,12 +299,10 @@ func TestReconcileStatusUpdateFails(t *testing.T) {
 	t.Parallel()
 
 	config := &resourcesv1alpha1.ProviderConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       "unwritable-backend",
-			Namespace:  "unwritable",
-			Generation: 1,
-		},
-		Spec: newTestSpec("https://signoz.unwritable.svc:8080"),
+		Name:       "unwritable-backend",
+		Namespace:  "unwritable",
+		Generation: 1,
+		Spec:       newTestSpec("https://signoz.unwritable.svc:8080"),
 	}
 
 	updateErr := apierrors.NewInternalError(errors.New("etcdserver: request timed out"))
